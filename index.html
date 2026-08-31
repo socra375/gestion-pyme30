@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Sistema de Gestión PYME</title>
+  
+  <!-- Manifest inline PWA mediante Data URI -->
+  <link rel="manifest" href="data:application/manifest+json;utf8,{
+    %22short_name%22:%22MiNegocio%22,
+    %22name%22:%22Sistema%20de%20Gestion%20PYME%22,
+    %22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/3135/3135715.png%22,%22type%22:%22image/png%22,%22sizes%22:%22192x192%22}],
+    %22start_url%22:%22.%22,
+    %22background_color%22:%22%230f172a%22,
+    %22theme_color%22:%22%231e293b%22,
+    %22display%22:%22standalone%22,
+    %22orientation%22:%22portrait%22
+  }">
+  <meta name="theme-color" content="#1e293b">
+
+  <!-- Librerías externas vía CDN (Chart.js y jsPDF) -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+  <style>
+    /* ESTILOS GLOBALES MOBILE-FIRST */
+    :root {
+      --bg-primary: #0f172a;
+      --bg-card: #1e293b;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --accent-blue: #2563eb;
+      --accent-green: #16a34a;
+      --accent-red: #dc2626;
+      --border-color: #334155;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg-primary);
+      color: var(--text-main);
+      padding-bottom: 80px;
+      line-height: 1.5;
+    }
+
+    .hidden { display: none !important; }
+
+    header {
+      background-color: var(--bg-card);
+      padding: 1rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+
+    .main-content {
+      padding: 1rem;
+      max-width: 800px;
+      margin: 0 auto;
+    }
+
+    /* TARJETAS Y FORMULARIOS */
+    .card {
+      background-color: var(--bg-card);
+      padding: 1.25rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-color);
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: var(--text-muted);
+    }
+
+    input, select, button {
+      width: 100%;
+      padding: 0.75rem;
+      margin-top: 0.25rem;
+      margin-bottom: 0.75rem;
+      border-radius: 6px;
+      border: 1px solid var(--border-color);
+      background-color: #020617;
+      color: var(--text-main);
+      font-size: 1rem;
+    }
+
+    button {
+      background-color: var(--accent-blue);
+      color: white;
+      font-weight: 600;
+      border: none;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+
+    button:active { opacity: 0.8; }
+    button.btn-success { background-color: var(--accent-green); }
+    button.btn-danger { background-color: var(--accent-red); }
+
+    /* TABLAS RESPONSIVE */
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+    }
+
+    th, td {
+      padding: 0.75rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    th {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      text-transform: uppercase;
+    }
+
+    .badge-warning {
+      background-color: #b45309;
+      color: #fef3c7;
+      padding: 0.15rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+    }
+
+    /* BARRA NAVEGACIÓN INFERIOR */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background-color: var(--bg-card);
+      display: flex;
+      justify-content: space-around;
+      padding: 0.5rem 0;
+      border-top: 1px solid var(--border-color);
+      z-index: 100;
+    }
+
+    .nav-item {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 0.75rem;
+      margin: 0;
+      padding: 0.2rem;
+      width: auto;
+    }
+
+    .nav-item.active {
+      color: var(--accent-blue);
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ENCABEZADO -->
+  <header id="app-header" class="hidden">
+    <h2 id="business-display-name">Mi Negocio</h2>
+    <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.4rem 0.8rem; margin: 0;">Salir</button>
+  </header>
+
+  <main class="main-content">
+    
+    <!-- PANTALLA 0: LOGIN / REGISTRO -->
+    <section id="auth-screen" class="card">
+      <h2 style="margin-bottom: 1rem;">Gestión PYME</h2>
+      <form id="login-form">
+        <label>Correo Electrónico</label>
+        <input type="email" id="auth-email" placeholder="ejemplo@negocio.com" required>
+        <label>Contraseña</label>
+        <input type="password" id="auth-password" required>
+        <button type="submit">Iniciar Sesión / Registrarse</button>
+      </form>
+      <button id="btn-google-auth" style="background-color: #ea4335;">Entrar con Google</button>
+    </section>
+
+    <!-- MÓDULO 1: INICIO / DASHBOARD -->
+    <section id="sec-dashboard" class="view-module hidden">
+      <h2>Resumen de Hoy</h2>
+      <div class="card" style="margin-top: 1rem;">
+        <p style="color: var(--text-muted);">Ventas Totales</p>
+        <h1 id="dash-today-sales" style="color: var(--accent-green);">$0.00</h1>
+        <p style="color: var(--text-muted); margin-top: 0.5rem;">Ganancia Estimada</p>
+        <h3 id="dash-today-profit">$0.00</h3>
+      </div>
+      <div class="card">
+        <h3>Alertas de Stock Bajo</h3>
+        <ul id="dash-low-stock-list" style="margin-top: 0.5rem; padding-left: 1.2rem; color: #f28b82;"></ul>
+      </div>
+    </section>
+
+    <!-- MÓDULO 2: INVENTARIO -->
+    <section id="sec-inventory" class="view-module hidden">
+      <h2>Inventario</h2>
+      <button id="btn-show-add-product" class="btn-success" style="margin-top: 0.5rem;">+ Nuevo Producto</button>
+
+      <!-- Formulario para agregar/editar -->
+      <form id="product-form" class="card hidden">
+        <h3 id="product-form-title">Guardar Producto</h3>
+        <input type="hidden" id="prod-id">
+        
+        <label>Nombre del Producto</label>
+        <input type="text" id="prod-name" required>
+        
+        <label>Precio Compra ($)</label>
+        <input type="number" step="0.01" id="prod-cost" required>
+        
+        <label>Precio Venta ($)</label>
+        <input type="number" step="0.01" id="prod-price" required>
+        
+        <label>Cantidad en Stock</label>
+        <input type="number" id="prod-stock" required>
+        
+        <label>Alerta Stock Mínimo</label>
+        <input type="number" id="prod-min" value="3" required>
+        
+        <button type="submit" class="btn-success">Guardar</button>
+        <button type="button" id="btn-cancel-product" class="btn-danger">Cancelar</button>
+      </form>
+
+      <input type="text" id="inventory-search" placeholder="Buscar por nombre..." style="margin-top: 1rem;">
+      
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Producto</th>
+              <th>Precio</th>
+              <th>Stock</th>
+              <th>Acción</th>
+            </tr>
+          </thead>
+          <tbody id="inventory-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- MÓDULO 3: VENTAS (POS) -->
+    <section id="sec-sales" class="view-module hidden">
+      <h2>Punto de Venta</h2>
+      <div class="card" style="margin-top: 0.5rem;">
+        <label>Seleccionar Producto</label>
+        <select id="sale-product-select"></select>
+        
+        <label>Cantidad</label>
+        <input type="number" id="sale-qty" value="1" min="1">
+        
+        <button id="btn-add-to-cart">Agregar a la Venta</button>
+      </div>
+
+      <div class="card">
+        <h3>Detalle de la Venta</h3>
+        <div class="table-responsive">
+          <table>
+            <thead>
+              <tr>
+                <th>Producto</th>
+                <th>Cant</th>
+                <th>Subtotal</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="cart-table-body"></tbody>
+          </table>
+        </div>
+
+        <h2 style="margin-top: 1rem; text-align: right;">Total: $<span id="cart-total">0.00</span></h2>
+        
+        <label>Método de Pago</label>
+        <select id="sale-payment-method">
+          <option value="Efectivo">Efectivo</option>
+          <option value="Transferencia">Transferencia</option>
+          <option value="Tarjeta">Tarjeta</option>
+        </select>
+        
+        <button id="btn-process-sale" class="btn-success" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">Completar Venta</button>
+      </div>
+    </section>
+
+    <!-- MÓDULO 4: REPORTES -->
+    <section id="sec-reports" class="view-module hidden">
+      <h2>Reportes</h2>
+      <div class="card" style="margin-top: 0.5rem;">
+        <h3>Ventas Recientes</h3>
+        <canvas id="salesChart" width="400" height="250" style="margin-top: 1rem;"></canvas>
+      </div>
+      <button id="btn-export-pdf" style="margin-top: 0.5rem;">Exportar Historial a PDF</button>
+    </section>
+
+    <!-- MÓDULO 5: CLIENTES -->
+    <section id="sec-customers" class="view-module hidden">
+      <h2>Clientes</h2>
+      <form id="customer-form" class="card" style="margin-top: 0.5rem;">
+        <label>Nombre del Cliente</label>
+        <input type="text" id="cust-name" required>
+        <label>Teléfono</label>
+        <input type="tel" id="cust-phone">
+        <button type="submit" class="btn-success">Guardar Cliente</button>
+      </form>
+
+      <div class="table-responsive">
+        <table>
+          <thead>
+            <tr>
+              <th>Nombre</th>
+              <th>Teléfono</th>
+            </tr>
+          </thead>
+          <tbody id="customers-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- NAVEGACIÓN INFERIOR MOBILE -->
+  <nav id="app-nav" class="bottom-nav hidden">
+    <button class="nav-item active" data-target="sec-dashboard">Inicio</button>
+    <button class="nav-item" data-target="sec-inventory">Inventario</button>
+    <button class="nav-item" data-target="sec-sales">Ventas</button>
+    <button class="nav-item" data-target="sec-reports">Reportes</button>
+    <button class="nav-item" data-target="sec-customers">Clientes</button>
+  </nav>
+
+  <!-- SCRIPT APLICACIÓN PRINCIPAL (ES MODULES) -->
+  <script type="module">
+    // Importación de módulos de Firebase desde CDN Oficial
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
+      GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { 
+      getFirestore, doc, getDoc, setDoc, collection, addDoc, updateDoc, 
+      onSnapshot, query, orderBy, serverTimestamp 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+    // -------------------------------------------------------------
+    // 1. CONFIGURACIÓN DE FIREBASE (Reemplazar con tus credenciales)
+    // -------------------------------------------------------------
+    const firebaseConfig = {
+       apiKey: "AIzaSyAH9QVWA8E8t0IBGRaUhr3-8Hz3xVhQwSo",
+    authDomain: "gestion-pyme-44f4a.firebaseapp.com",
+    projectId: "gestion-pyme-44f4a",
+    storageBucket: "gestion-pyme-44f4a.firebasestorage.app",
+    messagingSenderId: "610582601613",
+    appId: "1:610582601613:web:d14801c9021ec8557ca7c4"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // -------------------------------------------------------------
+    // 2. ESTADO GLOBAL Y VARIABLES
+    // -------------------------------------------------------------
+    let currentBusinessId = null;
+    let inventorySnapshot = [];
+    let salesHistory = [];
+    let cart = [];
+    let chartInstance = null;
+
+    // -------------------------------------------------------------
+    // 3. REGISTRO SERVICE WORKER (PWA Offline)
+    // -------------------------------------------------------------
+    if ('serviceWorker' in navigator) {
+      const swCode = `
+        const CACHE = 'pyme-single-v1';
+        self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./']))));
+        self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
+      `;
+      const blob = new Blob([swCode], { type: 'application/javascript' });
+      navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+    }
+
+    // -------------------------------------------------------------
+    // 4. CONTROL DE NAVEGACIÓN (SPA)
+    // -------------------------------------------------------------
+    const navButtons = document.querySelectorAll('.nav-item');
+    const modules = document.querySelectorAll('.view-module');
+
+    navButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const targetId = btn.dataset.target;
+        modules.forEach(m => m.classList.add('hidden'));
+        navButtons.forEach(b => b.classList.remove('active'));
+
+        document.getElementById(targetId).classList.remove('hidden');
+        btn.classList.add('active');
+      });
+    });
+
+    // -------------------------------------------------------------
+    // 5. AUTENTICACIÓN Y REGISTRO
+    // -------------------------------------------------------------
+    const loginForm = document.getElementById('login-form');
+    const googleBtn = document.getElementById('btn-google-auth');
+    const logoutBtn = document.getElementById('btn-logout');
+
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
+
+      try {
+        await signInWithEmailAndPassword(auth, email, password);
+      } catch (err) {
+        if (err.code === 'auth/user-not-found') {
+          // Si el usuario no existe, se crea la cuenta automáticamente
+          try {
+            await createUserWithEmailAndPassword(auth, email, password);
+          } catch (createErr) {
+            alert("Error al registrarse: " + createErr.message);
+          }
+        } else {
+          alert("Error de inicio de sesión: " + err.message);
+        }
+      }
+    });
+
+    googleBtn.addEventListener('click', async () => {
+      try {
+        await signInWithPopup(auth, new GoogleAuthProvider());
+      } catch (err) {
+        alert("Error de autenticación con Google: " + err.message);
+      }
+    });
+
+    logoutBtn.addEventListener('click', () => signOut(auth));
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        // Garantizar que el usuario tenga un ID de negocio único aislado
+        const userRef = doc(db, 'business_users', user.uid);
+        const userSnap = await getDoc(userRef);
+
+        if (!userSnap.exists()) {
+          currentBusinessId = user.uid;
+          await setDoc(userRef, { businessId: currentBusinessId });
+          await setDoc(doc(db, 'businesses', currentBusinessId), { name: "Mi Negocio" });
+        } else {
+          currentBusinessId = userSnap.data().businessId;
+        }
+
+        document.getElementById('auth-screen').classList.add('hidden');
+        document.getElementById('app-header').classList.remove('hidden');
+        document.getElementById('app-nav').classList.remove('hidden');
+        document.getElementById('sec-dashboard').classList.remove('hidden');
+
+        // Cargar submódulos
+        initInventory();
+        initSales();
+        initReports();
+        initCustomers();
+      } else {
+        currentBusinessId = null;
+        document.getElementById('auth-screen').classList.remove('hidden');
+        document.getElementById('app-header').classList.add('hidden');
+        document.getElementById('app-nav').classList.add('hidden');
+        modules.forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    // -------------------------------------------------------------
+    // 6. MÓDULO DE INVENTARIO
+    // -------------------------------------------------------------
+    function initInventory() {
+      const form = document.getElementById('product-form');
+      const btnShowAdd = document.getElementById('btn-show-add-product');
+      const btnCancel = document.getElementById('btn-cancel-product');
+      const searchInput = document.getElementById('inventory-search');
+
+      btnShowAdd.onclick = () => {
+        form.reset();
+        document.getElementById('prod-id').value = '';
+        form.classList.remove('hidden');
+      };
+
+      btnCancel.onclick = () => form.classList.add('hidden');
+
+      const productsRef = collection(db, `businesses/${currentBusinessId}/products`);
+      onSnapshot(productsRef, (snapshot) => {
+        inventorySnapshot = [];
+        snapshot.forEach(docSnap => {
+          inventorySnapshot.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        renderInventoryTable(inventorySnapshot);
+        populateSalesSelect(inventorySnapshot);
+        updateDashboardLowStock(inventorySnapshot);
+      });
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('prod-id').value;
+        const productData = {
+          name: document.getElementById('prod-name').value,
+          cost: parseFloat(document.getElementById('prod-cost').value),
+          price: parseFloat(document.getElementById('prod-price').value),
+          stock: parseInt(document.getElementById('prod-stock').value),
+          minStock: parseInt(document.getElementById('prod-min').value),
+          updatedAt: serverTimestamp()
+        };
+
+        try {
+          if (id) {
+            await updateDoc(doc(db, `businesses/${currentBusinessId}/products`, id), productData);
+          } else {
+            await addDoc(productsRef, productData);
+          }
+          form.classList.add('hidden');
+          form.reset();
+        } catch (err) {
+          alert("Error al guardar producto: " + err.message);
+        }
+      };
+
+      searchInput.oninput = (e) => {
+        const term = e.target.value.toLowerCase();
+        const filtered = inventorySnapshot.filter(p => p.name.toLowerCase().includes(term));
+        renderInventoryTable(filtered);
+      };
+    }
+
+    function renderInventoryTable(products) {
+      const tbody = document.getElementById('inventory-table-body');
+      tbody.innerHTML = '';
+      products.forEach(p => {
+        const isLow = p.stock <= p.minStock;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${p.name} ${isLow ? '<span class="badge-warning">Bajo</span>' : ''}</td>
+          <td>$${p.price.toFixed(2)}</td>
+          <td>${p.stock}</td>
+          <td>
+            <button class="btn-edit" data-id="${p.id}" style="width:auto; padding:0.2rem 0.5rem; margin:0;">Editar</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      tbody.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.onclick = (e) => {
+          const prod = inventorySnapshot.find(p => p.id === e.target.dataset.id);
+          if (!prod) return;
+          document.getElementById('prod-id').value = prod.id;
+          document.getElementById('prod-name').value = prod.name;
+          document.getElementById('prod-cost').value = prod.cost;
+          document.getElementById('prod-price').value = prod.price;
+          document.getElementById('prod-stock').value = prod.stock;
+          document.getElementById('prod-min').value = prod.minStock;
+          document.getElementById('product-form').classList.remove('hidden');
+        };
+      });
+    }
+
+    function updateDashboardLowStock(products) {
+      const list = document.getElementById('dash-low-stock-list');
+      list.innerHTML = '';
+      const lowStockItems = products.filter(p => p.stock <= p.minStock);
+      
+      if(lowStockItems.length === 0) {
+        list.innerHTML = '<li>Stock normal en todos los productos</li>';
+        return;
+      }
+
+      lowStockItems.forEach(p => {
+        const li = document.createElement('li');
+        li.textContent = `${p.name} - Quedan solo ${p.stock} unidad(es)`;
+        list.appendChild(li);
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 7. MÓDULO DE VENTAS (POS)
+    // -------------------------------------------------------------
+    function initSales() {
+      const btnAdd = document.getElementById('btn-add-to-cart');
+      const btnProcess = document.getElementById('btn-process-sale');
+
+      btnAdd.onclick = () => {
+        const select = document.getElementById('sale-product-select');
+        const qtyInput = document.getElementById('sale-qty');
+        const productId = select.value;
+        const qty = parseInt(qtyInput.value);
+
+        if (!productId || qty <= 0) return;
+        const product = inventorySnapshot.find(p => p.id === productId);
+        if (!product) return;
+
+        if (qty > product.stock) {
+          alert("Cantidad solicitada excede el stock disponible.");
+          return;
+        }
+
+        const existingIndex = cart.findIndex(item => item.id === productId);
+        if (existingIndex > -1) {
+          if (cart[existingIndex].qty + qty > product.stock) {
+            alert("No hay suficiente stock restante.");
+            return;
+          }
+          cart[existingIndex].qty += qty;
+          cart[existingIndex].subtotal = cart[existingIndex].qty * product.price;
+        } else {
+          cart.push({
+            id: product.id,
+            name: product.name,
+            cost: product.cost,
+            price: product.price,
+            qty: qty,
+            subtotal: qty * product.price
+          });
+        }
+        renderCart();
+      };
+
+      btnProcess.onclick = async () => {
+        if (cart.length === 0) {
+          alert("Agrega al menos un producto al carrito.");
+          return;
+        }
+
+        const paymentMethod = document.getElementById('sale-payment-method').value;
+        const totalAmount = cart.reduce((acc, item) => acc + item.subtotal, 0);
+        const totalCost = cart.reduce((acc, item) => acc + (item.cost * item.qty), 0);
+
+        try {
+          // Registrar Venta
+          await addDoc(collection(db, `businesses/${currentBusinessId}/sales`), {
+            items: cart,
+            total: totalAmount,
+            profit: totalAmount - totalCost,
+            paymentMethod: paymentMethod,
+            date: serverTimestamp()
+          });
+
+          // Descontar inventario
+          for (const item of cart) {
+            const productRef = doc(db, `businesses/${currentBusinessId}/products`, item.id);
+            const currentProd = inventorySnapshot.find(p => p.id === item.id);
+            if (currentProd) {
+              await updateDoc(productRef, {
+                stock: currentProd.stock - item.qty
+              });
+            }
+          }
+
+          alert("Venta completada con éxito.");
+          cart = [];
+          renderCart();
+        } catch (err) {
+          alert("Error al procesar la venta: " + err.message);
+        }
+      };
+    }
+
+    function populateSalesSelect(products) {
+      const select = document.getElementById('sale-product-select');
+      select.innerHTML = '';
+      products.forEach(p => {
+        const opt = document.createElement('option');
+        opt.value = p.id;
+        opt.textContent = `${p.name} ($${p.price.toFixed(2)} - Stock: ${p.stock})`;
+        select.appendChild(opt);
+      });
+    }
+
+    function renderCart() {
+      const tbody = document.getElementById('cart-table-body');
+      const totalSpan = document.getElementById('cart-total');
+      tbody.innerHTML = '';
+
+      let total = 0;
+      cart.forEach((item, index) => {
+        total += item.subtotal;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${item.name}</td>
+          <td>${item.qty}</td>
+          <td>$${item.subtotal.toFixed(2)}</td>
+          <td><button class="btn-danger btn-remove" data-index="${index}" style="width:auto; padding:0.1rem 0.4rem; margin:0;">X</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      totalSpan.textContent = total.toFixed(2);
+
+      tbody.querySelectorAll('.btn-remove').forEach(btn => {
+        btn.onclick = (e) => {
+          cart.splice(parseInt(e.target.dataset.index), 1);
+          renderCart();
+        };
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 8. MÓDULO DE REPORTES Y GRÁFICOS
+    // -------------------------------------------------------------
+    function initReports() {
+      const salesRef = collection(db, `businesses/${currentBusinessId}/sales`);
+      const q = query(salesRef, orderBy("date", "desc"));
+
+      onSnapshot(q, (snapshot) => {
+        salesHistory = [];
+        snapshot.forEach(docSnap => {
+          salesHistory.push({ id: docSnap.id, ...docSnap.data() });
+        });
+        updateDashboardSales(salesHistory);
+        renderChart(salesHistory);
+      });
+
+      document.getElementById('btn-export-pdf').onclick = exportPDF;
+    }
+
+    function updateDashboardSales(sales) {
+      const todayStr = new Date().toDateString();
+      let todaySalesTotal = 0;
+      let todayProfitTotal = 0;
+
+      sales.forEach(s => {
+        if (s.date && new Date(s.date.seconds * 1000).toDateString() === todayStr) {
+          todaySalesTotal += s.total;
+          todayProfitTotal += s.profit;
+        }
+      });
+
+      document.getElementById('dash-today-sales').textContent = `$${todaySalesTotal.toFixed(2)}`;
+      document.getElementById('dash-today-profit').textContent = `$${todayProfitTotal.toFixed(2)}`;
+    }
+
+    function renderChart(sales) {
+      const ctx = document.getElementById('salesChart');
+      if (!ctx) return;
+
+      const lastSales = sales.slice(0, 7).reverse();
+      const labels = lastSales.map(s => s.date ? new Date(s.date.seconds * 1000).toLocaleDateString() : 'Hoy');
+      const data = lastSales.map(s => s.total);
+
+      if (chartInstance) chartInstance.destroy();
+
+      chartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Ventas Recientes ($)',
+            data: data,
+            borderColor: '#2563eb',
+            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { labels: { color: '#f8fafc' } } },
+          scales: {
+            x: { ticks: { color: '#94a3b8' } },
+            y: { ticks: { color: '#94a3b8' } }
+          }
+        }
+      });
+    }
+
+    function exportPDF() {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      doc.setFontSize(16);
+      doc.text("Reporte de Historial de Ventas", 14, 20);
+
+      doc.setFontSize(10);
+      let y = 35;
+      
+      doc.text("Fecha", 14, y);
+      doc.text("Método", 60, y);
+      doc.text("Total", 120, y);
+      y += 5;
+      doc.line(14, y, 190, y);
+      y += 10;
+
+      salesHistory.slice(0, 20).forEach(s => {
+        const fecha = s.date ? new Date(s.date.seconds * 1000).toLocaleDateString() : 'Reciente';
+        doc.text(fecha, 14, y);
+        doc.text(s.paymentMethod || 'Efectivo', 60, y);
+        doc.text(`$${s.total.toFixed(2)}`, 120, y);
+        y += 10;
+      });
+
+      doc.save("Reporte_Ventas.pdf");
+    }
+
+    // -------------------------------------------------------------
+    // 9. MÓDULO DE CLIENTES
+    // -------------------------------------------------------------
+    function initCustomers() {
+      const form = document.getElementById('customer-form');
+      const customersRef = collection(db, `businesses/${currentBusinessId}/customers`);
+
+      onSnapshot(customersRef, (snapshot) => {
+        const tbody = document.getElementById('customers-table-body');
+        tbody.innerHTML = '';
+        snapshot.forEach(docSnap => {
+          const c = docSnap.data();
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${c.name}</td><td>${c.phone || 'N/A'}</td>`;
+          tbody.appendChild(tr);
+        });
+      });
+
+      form.onsubmit = async (e) => {
+        e.preventDefault();
+        const name = document.getElementById('cust-name').value;
+        const phone = document.getElementById('cust-phone').value;
+
+        try {
+          await addDoc(customersRef, { name, phone });
+          form.reset();
+        } catch (err) {
+          alert("Error al registrar cliente: " + err.message);
+        }
+      };
+    }
+  </script>
+</body>
+</html>
