@@ -388,73 +388,46 @@
     // -------------------------------------------------------------
     // 5. AUTENTICACIÓN (Supabase Auth)
     // -------------------------------------------------------------
-    const loginForm = document.getElementById('login-form');
-    const googleBtn = document.getElementById('btn-google-auth');
-    const logoutBtn = document.getElementById('btn-logout');
+  let modulesInitialized = false;
 
-    loginForm.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const email = document.getElementById('auth-email').value;
-      const password = document.getElementById('auth-password').value;
+supabase.auth.onAuthStateChange(async (event, session) => {
+  if (session?.user) {
+    currentBusinessId = session.user.id;
 
-      // Intentar Login
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      
-      if (error) {
-        // Si falla, intentar Registro
-        const { error: signUpError } = await supabase.auth.signUp({ email, password });
-        if (signUpError) {
-          alert("Error de autenticación: " + signUpError.message);
-        } else {
-          alert("Registro exitoso. Revisa tu correo o inicia sesión.");
-        }
-      }
-    });
+    // Asegurar que exista el registro en la tabla businesses
+    const { data: business } = await supabase
+      .from('businesses')
+      .select('id')
+      .eq('id', currentBusinessId)
+      .single();
 
-    googleBtn.addEventListener('click', async () => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { redirectTo: window.location.href }
-      });
-      if (error) alert("Error OAuth: " + error.message);
-    });
+    if (!business) {
+      await supabase.from('businesses').insert([{ id: currentBusinessId, name: 'Mi Negocio' }]);
+    }
 
-    logoutBtn.addEventListener('click', () => supabase.auth.signOut());
+    document.getElementById('auth-screen').classList.add('hidden');
+    document.getElementById('app-header').classList.remove('hidden');
+    document.getElementById('app-nav').classList.remove('hidden');
+    document.getElementById('sec-dashboard').classList.remove('hidden');
 
-    // Escuchador de cambios de estado de Auth (Equivalente a onAuthStateChanged)
-    supabase.auth.onAuthStateChange(async (event, session) => {
-      if (session?.user) {
-        currentBusinessId = session.user.id;
+    if (!modulesInitialized) {
+      initInventory();
+      initSales();
+      initReports();
+      initCustomers();
+      modulesInitialized = true;
+    }
+  } else {
+    currentBusinessId = null;
+    modulesInitialized = false;
+    supabase.removeAllChannels(); // limpia las suscripciones al salir
 
-        // Asegurar que exista el registro en la tabla businesses
-        const { data: business } = await supabase
-          .from('businesses')
-          .select('id')
-          .eq('id', currentBusinessId)
-          .single();
-
-        if (!business) {
-          await supabase.from('businesses').insert([{ id: currentBusinessId, name: 'Mi Negocio' }]);
-        }
-
-        document.getElementById('auth-screen').classList.add('hidden');
-        document.getElementById('app-header').classList.remove('hidden');
-        document.getElementById('app-nav').classList.remove('hidden');
-        document.getElementById('sec-dashboard').classList.remove('hidden');
-
-        // Inicializar módulos de la app
-        initInventory();
-        initSales();
-        initReports();
-        initCustomers();
-      } else {
-        currentBusinessId = null;
-        document.getElementById('auth-screen').classList.remove('hidden');
-        document.getElementById('app-header').classList.add('hidden');
-        document.getElementById('app-nav').classList.add('hidden');
-        modules.forEach(m => m.classList.add('hidden'));
-      }
-    });
+    document.getElementById('auth-screen').classList.remove('hidden');
+    document.getElementById('app-header').classList.add('hidden');
+    document.getElementById('app-nav').classList.add('hidden');
+    modules.forEach(m => m.classList.add('hidden'));
+  }
+});
 
     // -------------------------------------------------------------
     // 6. MÓDULO DE INVENTARIO (Postgres + Supabase Realtime)
@@ -492,7 +465,7 @@
 
       // Suscripción Realtime (Postgres Changes)
       supabase.channel('public:products')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${currentBusinessId}` }, ...)
           loadProducts();
         })
         .subscribe();
