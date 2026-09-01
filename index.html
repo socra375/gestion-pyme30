@@ -463,15 +463,11 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
       await loadProducts();
 
-      // Suscripción Realtime (Postgres Changes)
-      supabase.channel('public:products')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${currentBusinessId}` }, () => {
-    loadProducts();
-  })
-  .subscribe();
-          loadProducts();
-        })
-        .subscribe();
+    supabase.channel('public:products')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${currentBusinessId}` }, () => {
+        loadProducts();
+      })
+      .subscribe();
 
       // Guardar / Modificar producto
       form.onsubmit = async (e) => {
