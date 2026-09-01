@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistema de Gestión PYME</title>
+  <title>Sistema de Gestión PYME - Supabase Edition</title>
   
-  <!-- Manifest inline PWA mediante Data URI -->
   <link rel="manifest" href="data:application/manifest+json;utf8,{
     %22short_name%22:%22MiNegocio%22,
     %22name%22:%22Sistema%20de%20Gestion%20PYME%22,
@@ -18,12 +17,13 @@
   }">
   <meta name="theme-color" content="#1e293b">
 
-  <!-- Librerías externas vía CDN (Chart.js y jsPDF) -->
+  <!-- Supabase JS v2 CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Chart.js y jsPDF vía CDN -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
-    /* ESTILOS GLOBALES MOBILE-FIRST */
     :root {
       --bg-primary: #0f172a;
       --bg-card: #1e293b;
@@ -69,7 +69,6 @@
       margin: 0 auto;
     }
 
-    /* TARJETAS Y FORMULARIOS */
     .card {
       background-color: var(--bg-card);
       padding: 1.25rem;
@@ -110,10 +109,7 @@
     button.btn-success { background-color: var(--accent-green); }
     button.btn-danger { background-color: var(--accent-red); }
 
-    /* TABLAS RESPONSIVE */
-    .table-responsive {
-      overflow-x: auto;
-    }
+    .table-responsive { overflow-x: auto; }
 
     table {
       width: 100%;
@@ -141,7 +137,6 @@
       font-size: 0.75rem;
     }
 
-    /* BARRA NAVEGACIÓN INFERIOR */
     .bottom-nav {
       position: fixed;
       bottom: 0;
@@ -176,7 +171,6 @@
 </head>
 <body>
 
-  <!-- ENCABEZADO -->
   <header id="app-header" class="hidden">
     <h2 id="business-display-name">Mi Negocio</h2>
     <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.4rem 0.8rem; margin: 0;">Salir</button>
@@ -184,9 +178,9 @@
 
   <main class="main-content">
     
-    <!-- PANTALLA 0: LOGIN / REGISTRO -->
+    <!-- PANTALLA: LOGIN / REGISTRO -->
     <section id="auth-screen" class="card">
-      <h2 style="margin-bottom: 1rem;">Gestión PYME</h2>
+      <h2 style="margin-bottom: 1rem;">Gestión PYME (Supabase)</h2>
       <form id="login-form">
         <label>Correo Electrónico</label>
         <input type="email" id="auth-email" placeholder="ejemplo@negocio.com" required>
@@ -217,7 +211,6 @@
       <h2>Inventario</h2>
       <button id="btn-show-add-product" class="btn-success" style="margin-top: 0.5rem;">+ Nuevo Producto</button>
 
-      <!-- Formulario para agregar/editar -->
       <form id="product-form" class="card hidden">
         <h3 id="product-form-title">Guardar Producto</h3>
         <input type="hidden" id="prod-id">
@@ -336,7 +329,6 @@
 
   </main>
 
-  <!-- NAVEGACIÓN INFERIOR MOBILE -->
   <nav id="app-nav" class="bottom-nav hidden">
     <button class="nav-item active" data-target="sec-dashboard">Inicio</button>
     <button class="nav-item" data-target="sec-inventory">Inventario</button>
@@ -345,37 +337,17 @@
     <button class="nav-item" data-target="sec-customers">Clientes</button>
   </nav>
 
-  <!-- SCRIPT APLICACIÓN PRINCIPAL (ES MODULES) -->
   <script type="module">
-    // Importación de módulos de Firebase desde CDN Oficial
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { 
-      getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, 
-      GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged 
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { 
-      getFirestore, doc, getDoc, setDoc, collection, addDoc, updateDoc, 
-      onSnapshot, query, orderBy, serverTimestamp 
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    // -------------------------------------------------------------
+    // 1. INICIALIZACIÓN DE SUPABASE
+    // -------------------------------------------------------------
+    const SUPABASE_URL = "https://TU_PROJECT_REF.supabase.co";
+    const SUPABASE_ANON_KEY = "TU_SUPABASE_ANON_KEY";
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     // -------------------------------------------------------------
-    // 1. CONFIGURACIÓN DE FIREBASE (Reemplazar con tus credenciales)
-    // -------------------------------------------------------------
-    const firebaseConfig = {
-       apiKey: "AIzaSyAH9QVWA8E8t0IBGRaUhr3-8Hz3xVhQwSo",
-    authDomain: "gestion-pyme-44f4a.firebaseapp.com",
-    projectId: "gestion-pyme-44f4a",
-    storageBucket: "gestion-pyme-44f4a.firebasestorage.app",
-    messagingSenderId: "610582601613",
-    appId: "1:610582601613:web:d14801c9021ec8557ca7c4"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-
-    // -------------------------------------------------------------
-    // 2. ESTADO GLOBAL Y VARIABLES
+    // 2. ESTADO GLOBAL
     // -------------------------------------------------------------
     let currentBusinessId = null;
     let inventorySnapshot = [];
@@ -384,11 +356,11 @@
     let chartInstance = null;
 
     // -------------------------------------------------------------
-    // 3. REGISTRO SERVICE WORKER (PWA Offline)
+    // 3. SERVICE WORKER PWA
     // -------------------------------------------------------------
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE = 'pyme-single-v1';
+        const CACHE = 'pyme-supabase-v1';
         self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./']))));
         self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
       `;
@@ -414,7 +386,7 @@
     });
 
     // -------------------------------------------------------------
-    // 5. AUTENTICACIÓN Y REGISTRO
+    // 5. AUTENTICACIÓN (Supabase Auth)
     // -------------------------------------------------------------
     const loginForm = document.getElementById('login-form');
     const googleBtn = document.getElementById('btn-google-auth');
@@ -425,44 +397,44 @@
       const email = document.getElementById('auth-email').value;
       const password = document.getElementById('auth-password').value;
 
-      try {
-        await signInWithEmailAndPassword(auth, email, password);
-      } catch (err) {
-        if (err.code === 'auth/user-not-found') {
-          // Si el usuario no existe, se crea la cuenta automáticamente
-          try {
-            await createUserWithEmailAndPassword(auth, email, password);
-          } catch (createErr) {
-            alert("Error al registrarse: " + createErr.message);
-          }
+      // Intentar Login
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      
+      if (error) {
+        // Si falla, intentar Registro
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) {
+          alert("Error de autenticación: " + signUpError.message);
         } else {
-          alert("Error de inicio de sesión: " + err.message);
+          alert("Registro exitoso. Revisa tu correo o inicia sesión.");
         }
       }
     });
 
     googleBtn.addEventListener('click', async () => {
-      try {
-        await signInWithPopup(auth, new GoogleAuthProvider());
-      } catch (err) {
-        alert("Error de autenticación con Google: " + err.message);
-      }
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.href }
+      });
+      if (error) alert("Error OAuth: " + error.message);
     });
 
-    logoutBtn.addEventListener('click', () => signOut(auth));
+    logoutBtn.addEventListener('click', () => supabase.auth.signOut());
 
-    onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        // Garantizar que el usuario tenga un ID de negocio único aislado
-        const userRef = doc(db, 'business_users', user.uid);
-        const userSnap = await getDoc(userRef);
+    // Escuchador de cambios de estado de Auth (Equivalente a onAuthStateChanged)
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        currentBusinessId = session.user.id;
 
-        if (!userSnap.exists()) {
-          currentBusinessId = user.uid;
-          await setDoc(userRef, { businessId: currentBusinessId });
-          await setDoc(doc(db, 'businesses', currentBusinessId), { name: "Mi Negocio" });
-        } else {
-          currentBusinessId = userSnap.data().businessId;
+        // Asegurar que exista el registro en la tabla businesses
+        const { data: business } = await supabase
+          .from('businesses')
+          .select('id')
+          .eq('id', currentBusinessId)
+          .single();
+
+        if (!business) {
+          await supabase.from('businesses').insert([{ id: currentBusinessId, name: 'Mi Negocio' }]);
         }
 
         document.getElementById('auth-screen').classList.add('hidden');
@@ -470,7 +442,7 @@
         document.getElementById('app-nav').classList.remove('hidden');
         document.getElementById('sec-dashboard').classList.remove('hidden');
 
-        // Cargar submódulos
+        // Inicializar módulos de la app
         initInventory();
         initSales();
         initReports();
@@ -485,9 +457,9 @@
     });
 
     // -------------------------------------------------------------
-    // 6. MÓDULO DE INVENTARIO
+    // 6. MÓDULO DE INVENTARIO (Postgres + Supabase Realtime)
     // -------------------------------------------------------------
-    function initInventory() {
+    async function initInventory() {
       const form = document.getElementById('product-form');
       const btnShowAdd = document.getElementById('btn-show-add-product');
       const btnCancel = document.getElementById('btn-cancel-product');
@@ -501,39 +473,56 @@
 
       btnCancel.onclick = () => form.classList.add('hidden');
 
-      const productsRef = collection(db, `businesses/${currentBusinessId}/products`);
-      onSnapshot(productsRef, (snapshot) => {
-        inventorySnapshot = [];
-        snapshot.forEach(docSnap => {
-          inventorySnapshot.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        renderInventoryTable(inventorySnapshot);
-        populateSalesSelect(inventorySnapshot);
-        updateDashboardLowStock(inventorySnapshot);
-      });
+      // Función para cargar datos iniciales
+      const loadProducts = async () => {
+        const { data, error } = await supabase
+          .from('products')
+          .select('*')
+          .eq('business_id', currentBusinessId);
 
+        if (!error && data) {
+          inventorySnapshot = data;
+          renderInventoryTable(inventorySnapshot);
+          populateSalesSelect(inventorySnapshot);
+          updateDashboardLowStock(inventorySnapshot);
+        }
+      };
+
+      await loadProducts();
+
+      // Suscripción Realtime (Postgres Changes)
+      supabase.channel('public:products')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+          loadProducts();
+        })
+        .subscribe();
+
+      // Guardar / Modificar producto
       form.onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById('prod-id').value;
-        const productData = {
+        const productPayload = {
+          business_id: currentBusinessId,
           name: document.getElementById('prod-name').value,
-          cost: parseFloat(document.getElementById('prod-cost').value),
-          price: parseFloat(document.getElementById('prod-price').value),
+          purchase_price: parseFloat(document.getElementById('prod-cost').value),
+          sale_price: parseFloat(document.getElementById('prod-price').value),
           stock: parseInt(document.getElementById('prod-stock').value),
-          minStock: parseInt(document.getElementById('prod-min').value),
-          updatedAt: serverTimestamp()
+          min_stock: parseInt(document.getElementById('prod-min').value),
+          updated_at: new Date()
         };
 
-        try {
-          if (id) {
-            await updateDoc(doc(db, `businesses/${currentBusinessId}/products`, id), productData);
-          } else {
-            await addDoc(productsRef, productData);
-          }
+        let result;
+        if (id) {
+          result = await supabase.from('products').update(productPayload).eq('id', id);
+        } else {
+          result = await supabase.from('products').insert([productPayload]);
+        }
+
+        if (result.error) {
+          alert("Error al guardar producto: " + result.error.message);
+        } else {
           form.classList.add('hidden');
           form.reset();
-        } catch (err) {
-          alert("Error al guardar producto: " + err.message);
         }
       };
 
@@ -548,11 +537,11 @@
       const tbody = document.getElementById('inventory-table-body');
       tbody.innerHTML = '';
       products.forEach(p => {
-        const isLow = p.stock <= p.minStock;
+        const isLow = p.stock <= p.min_stock;
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${p.name} ${isLow ? '<span class="badge-warning">Bajo</span>' : ''}</td>
-          <td>$${p.price.toFixed(2)}</td>
+          <td>$${parseFloat(p.sale_price).toFixed(2)}</td>
           <td>${p.stock}</td>
           <td>
             <button class="btn-edit" data-id="${p.id}" style="width:auto; padding:0.2rem 0.5rem; margin:0;">Editar</button>
@@ -567,10 +556,10 @@
           if (!prod) return;
           document.getElementById('prod-id').value = prod.id;
           document.getElementById('prod-name').value = prod.name;
-          document.getElementById('prod-cost').value = prod.cost;
-          document.getElementById('prod-price').value = prod.price;
+          document.getElementById('prod-cost').value = prod.purchase_price;
+          document.getElementById('prod-price').value = prod.sale_price;
           document.getElementById('prod-stock').value = prod.stock;
-          document.getElementById('prod-min').value = prod.minStock;
+          document.getElementById('prod-min').value = prod.min_stock;
           document.getElementById('product-form').classList.remove('hidden');
         };
       });
@@ -579,7 +568,7 @@
     function updateDashboardLowStock(products) {
       const list = document.getElementById('dash-low-stock-list');
       list.innerHTML = '';
-      const lowStockItems = products.filter(p => p.stock <= p.minStock);
+      const lowStockItems = products.filter(p => p.stock <= p.min_stock);
       
       if(lowStockItems.length === 0) {
         list.innerHTML = '<li>Stock normal en todos los productos</li>';
@@ -622,15 +611,15 @@
             return;
           }
           cart[existingIndex].qty += qty;
-          cart[existingIndex].subtotal = cart[existingIndex].qty * product.price;
+          cart[existingIndex].subtotal = cart[existingIndex].qty * parseFloat(product.sale_price);
         } else {
           cart.push({
             id: product.id,
             name: product.name,
-            cost: product.cost,
-            price: product.price,
+            cost: parseFloat(product.purchase_price),
+            price: parseFloat(product.sale_price),
             qty: qty,
-            subtotal: qty * product.price
+            subtotal: qty * parseFloat(product.sale_price)
           });
         }
         renderCart();
@@ -647,23 +636,25 @@
         const totalCost = cart.reduce((acc, item) => acc + (item.cost * item.qty), 0);
 
         try {
-          // Registrar Venta
-          await addDoc(collection(db, `businesses/${currentBusinessId}/sales`), {
+          // 1. Insertar venta en Postgres (items como JSONB)
+          const { error: saleError } = await supabase.from('sales').insert([{
+            business_id: currentBusinessId,
             items: cart,
             total: totalAmount,
             profit: totalAmount - totalCost,
-            paymentMethod: paymentMethod,
-            date: serverTimestamp()
-          });
+            payment_method: paymentMethod
+          }]);
 
-          // Descontar inventario
+          if (saleError) throw saleError;
+
+          // 2. Descontar Stock de cada producto consumido
           for (const item of cart) {
-            const productRef = doc(db, `businesses/${currentBusinessId}/products`, item.id);
             const currentProd = inventorySnapshot.find(p => p.id === item.id);
             if (currentProd) {
-              await updateDoc(productRef, {
-                stock: currentProd.stock - item.qty
-              });
+              await supabase
+                .from('products')
+                .update({ stock: currentProd.stock - item.qty })
+                .eq('id', item.id);
             }
           }
 
@@ -682,7 +673,7 @@
       products.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = `${p.name} ($${p.price.toFixed(2)} - Stock: ${p.stock})`;
+        opt.textContent = `${p.name} ($${parseFloat(p.sale_price).toFixed(2)} - Stock: ${p.stock})`;
         select.appendChild(opt);
       });
     }
@@ -718,18 +709,28 @@
     // -------------------------------------------------------------
     // 8. MÓDULO DE REPORTES Y GRÁFICOS
     // -------------------------------------------------------------
-    function initReports() {
-      const salesRef = collection(db, `businesses/${currentBusinessId}/sales`);
-      const q = query(salesRef, orderBy("date", "desc"));
+    async function initReports() {
+      const loadSales = async () => {
+        const { data, error } = await supabase
+          .from('sales')
+          .select('*')
+          .eq('business_id', currentBusinessId)
+          .order('created_at', { ascending: false });
 
-      onSnapshot(q, (snapshot) => {
-        salesHistory = [];
-        snapshot.forEach(docSnap => {
-          salesHistory.push({ id: docSnap.id, ...docSnap.data() });
-        });
-        updateDashboardSales(salesHistory);
-        renderChart(salesHistory);
-      });
+        if (!error && data) {
+          salesHistory = data;
+          updateDashboardSales(salesHistory);
+          renderChart(salesHistory);
+        }
+      };
+
+      await loadSales();
+
+      supabase.channel('public:sales')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales' }, () => {
+          loadSales();
+        })
+        .subscribe();
 
       document.getElementById('btn-export-pdf').onclick = exportPDF;
     }
@@ -740,9 +741,9 @@
       let todayProfitTotal = 0;
 
       sales.forEach(s => {
-        if (s.date && new Date(s.date.seconds * 1000).toDateString() === todayStr) {
-          todaySalesTotal += s.total;
-          todayProfitTotal += s.profit;
+        if (s.created_at && new Date(s.created_at).toDateString() === todayStr) {
+          todaySalesTotal += parseFloat(s.total);
+          todayProfitTotal += parseFloat(s.profit);
         }
       });
 
@@ -755,8 +756,8 @@
       if (!ctx) return;
 
       const lastSales = sales.slice(0, 7).reverse();
-      const labels = lastSales.map(s => s.date ? new Date(s.date.seconds * 1000).toLocaleDateString() : 'Hoy');
-      const data = lastSales.map(s => s.total);
+      const labels = lastSales.map(s => s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Hoy');
+      const data = lastSales.map(s => parseFloat(s.total));
 
       if (chartInstance) chartInstance.destroy();
 
@@ -801,10 +802,10 @@
       y += 10;
 
       salesHistory.slice(0, 20).forEach(s => {
-        const fecha = s.date ? new Date(s.date.seconds * 1000).toLocaleDateString() : 'Reciente';
+        const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Reciente';
         doc.text(fecha, 14, y);
-        doc.text(s.paymentMethod || 'Efectivo', 60, y);
-        doc.text(`$${s.total.toFixed(2)}`, 120, y);
+        doc.text(s.payment_method || 'Efectivo', 60, y);
+        doc.text(`$${parseFloat(s.total).toFixed(2)}`, 120, y);
         y += 10;
       });
 
@@ -814,31 +815,49 @@
     // -------------------------------------------------------------
     // 9. MÓDULO DE CLIENTES
     // -------------------------------------------------------------
-    function initCustomers() {
+    async function initCustomers() {
       const form = document.getElementById('customer-form');
-      const customersRef = collection(db, `businesses/${currentBusinessId}/customers`);
 
-      onSnapshot(customersRef, (snapshot) => {
-        const tbody = document.getElementById('customers-table-body');
-        tbody.innerHTML = '';
-        snapshot.forEach(docSnap => {
-          const c = docSnap.data();
-          const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${c.name}</td><td>${c.phone || 'N/A'}</td>`;
-          tbody.appendChild(tr);
-        });
-      });
+      const loadCustomers = async () => {
+        const { data, error } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('business_id', currentBusinessId);
+
+        if (!error && data) {
+          const tbody = document.getElementById('customers-table-body');
+          tbody.innerHTML = '';
+          data.forEach(c => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td>${c.name}</td><td>${c.phone || 'N/A'}</td>`;
+            tbody.appendChild(tr);
+          });
+        }
+      };
+
+      await loadCustomers();
+
+      supabase.channel('public:customers')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
+          loadCustomers();
+        })
+        .subscribe();
 
       form.onsubmit = async (e) => {
         e.preventDefault();
         const name = document.getElementById('cust-name').value;
         const phone = document.getElementById('cust-phone').value;
 
-        try {
-          await addDoc(customersRef, { name, phone });
+        const { error } = await supabase.from('customers').insert([{
+          business_id: currentBusinessId,
+          name,
+          phone
+        }]);
+
+        if (error) {
+          alert("Error al registrar cliente: " + error.message);
+        } else {
           form.reset();
-        } catch (err) {
-          alert("Error al registrar cliente: " + err.message);
         }
       };
     }
