@@ -668,7 +668,8 @@
     alert("Registro exitoso. Revisa tu correo para confirmar la cuenta antes de iniciar sesión.");
   }
 }
-
+});
+    
     document.getElementById('btn-google-auth').onclick = async () => {
   const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
   if (error) alert("Error OAuth: " + error.message);
