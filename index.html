@@ -277,6 +277,7 @@
 
   <header id="app-header" class="hidden">
     <h2 id="business-display-name" style="font-size: 1.1rem;">Mi Negocio</h2>
+    <button id="btn-set-password" style="width: auto; padding: 0.35rem 0.8rem; margin: 0 0.5rem 0 0; font-size: 0.85rem; background-color: #1E2942; border: 1px solid var(--border-subtle);">Crear Contraseña</button>
     <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.35rem 0.8rem; margin: 0; font-size: 0.85rem;">Salir</button>
   </header>
 
@@ -676,7 +677,32 @@
 };
 
     document.getElementById('btn-logout').onclick = () => supabase.auth.signOut();
+document.getElementById('btn-set-password').onclick = () => {
+  document.getElementById('modal-password').classList.remove('hidden');
+};
 
+document.getElementById('btn-close-password').onclick = () => {
+  document.getElementById('modal-password').classList.add('hidden');
+};
+
+document.getElementById('btn-save-password').onclick = async () => {
+  const newPassword = document.getElementById('input-new-password').value;
+
+  if (newPassword.length < 6) {
+    alert("La contraseña debe tener al menos 6 caracteres.");
+    return;
+  }
+
+  const { error } = await supabase.auth.updateUser({ password: newPassword });
+
+  if (error) {
+    alert("Error al guardar contraseña: " + error.message);
+  } else {
+    alert("¡Listo! Ya puedes iniciar sesión con tu correo y esta contraseña.");
+    document.getElementById('modal-password').classList.add('hidden');
+    document.getElementById('input-new-password').value = '';
+  }
+};
     supabase.auth.onAuthStateChange(async (event, session) => {
       if (session?.user) {
         currentBusinessId = session.user.id;
