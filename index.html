@@ -422,8 +422,8 @@
         <label>Nombre del Producto</label>
         <input type="text" id="prod-name" required>
         
-        <label>Precio Compra ($)</label>
-        <input type="number" step="0.01" id="prod-cost" required>
+        <label>Precio Compra ($) — deja en blanco si es producción propia</label>
+<input type="number" step="0.01" id="prod-cost" placeholder="0.00">
         
         <label>Precio Venta ($)</label>
         <input type="number" step="0.01" id="prod-price" required>
@@ -911,7 +911,7 @@
         const payload = {
           business_id: currentBusinessId,
           name: document.getElementById('prod-name').value,
-          purchase_price: parseFloat(document.getElementById('prod-cost').value),
+         purchase_price: parseFloat(document.getElementById('prod-cost').value) || 0,
           sale_price: parseFloat(document.getElementById('prod-price').value),
           stock: parseInt(document.getElementById('prod-stock').value),
           min_stock: parseInt(document.getElementById('prod-min').value),
