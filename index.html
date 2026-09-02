@@ -3,213 +3,417 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Sistema de Gestión PYME - Supabase Edition</title>
-  
+  <title>Sistema de Gestión PYME - Dashboard Avanzado</title>
+
+  <!-- Google Fonts: Space Grotesk & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+
   <link rel="manifest" href="data:application/manifest+json;utf8,{
     %22short_name%22:%22MiNegocio%22,
     %22name%22:%22Sistema%20de%20Gestion%20PYME%22,
     %22icons%22:[{%22src%22:%22https://cdn-icons-png.flaticon.com/512/3135/3135715.png%22,%22type%22:%22image/png%22,%22sizes%22:%22192x192%22}],
     %22start_url%22:%22.%22,
-    %22background_color%22:%22%230f172a%22,
-    %22theme_color%22:%22%231e293b%22,
+    %22background_color%22:%22%230B1120%22,
+    %22theme_color%22:%22%23141B2E%22,
     %22display%22:%22standalone%22,
     %22orientation%22:%22portrait%22
   }">
-  <meta name="theme-color" content="#1e293b">
+  <meta name="theme-color" content="#141B2E">
 
   <!-- Supabase JS v2 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Chart.js y jsPDF vía CDN -->
+  <!-- Chart.js y jsPDF -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
   <style>
     :root {
-      --bg-primary: #0f172a;
-      --bg-card: #1e293b;
-      --text-main: #f8fafc;
-      --text-muted: #94a3b8;
-      --accent-blue: #2563eb;
-      --accent-green: #16a34a;
-      --accent-red: #dc2626;
-      --border-color: #334155;
+      --bg-primary: #0B1120;
+      --bg-card: #141B2E;
+      --accent-profit: #00D9A3;
+      --accent-expense: #FF5A5F;
+      --accent-recommend: #F5B942;
+      --text-primary: #E8ECF4;
+      --text-muted: #8891A8;
+      --border-subtle: #232B42;
+      --font-grotesk: 'Space Grotesk', sans-serif;
+      --font-inter: 'Inter', sans-serif;
     }
 
     * {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
-      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      font-family: var(--font-inter);
     }
 
     body {
       background-color: var(--bg-primary);
-      color: var(--text-main);
-      padding-bottom: 80px;
+      color: var(--text-primary);
+      padding-bottom: 90px;
       line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
     }
 
     .hidden { display: none !important; }
 
+    /* Layout & Header */
     header {
       background-color: var(--bg-card);
-      padding: 1rem;
+      padding: 1rem 1.25rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      border-bottom: 1px solid var(--border-color);
+      border-bottom: 1px solid var(--border-subtle);
       position: sticky;
       top: 0;
       z-index: 100;
     }
 
+    h1, h2, h3, h4, .font-numeric {
+      font-family: var(--font-grotesk);
+      font-weight: 700;
+    }
+
     .main-content {
       padding: 1rem;
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
     }
 
     .card {
       background-color: var(--bg-card);
       padding: 1.25rem;
-      border-radius: 8px;
-      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      border: 1px solid var(--border-subtle);
       margin-bottom: 1rem;
     }
 
+    /* Formularios y Botones */
     label {
       display: block;
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
       color: var(--text-muted);
     }
 
     input, select, button {
       width: 100%;
-      padding: 0.75rem;
-      margin-top: 0.25rem;
-      margin-bottom: 0.75rem;
-      border-radius: 6px;
-      border: 1px solid var(--border-color);
-      background-color: #020617;
-      color: var(--text-main);
-      font-size: 1rem;
+      padding: 0.75rem 1rem;
+      margin-top: 0.35rem;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      background-color: #070B14;
+      color: var(--text-primary);
+      font-size: 0.95rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    input:focus, select:focus {
+      border-color: var(--accent-profit);
     }
 
     button {
-      background-color: var(--accent-blue);
-      color: white;
+      background-color: #1E2942;
+      color: var(--text-primary);
       font-weight: 600;
       border: none;
       cursor: pointer;
-      transition: opacity 0.2s;
+      margin-top: 0.75rem;
     }
 
-    button:active { opacity: 0.8; }
-    button.btn-success { background-color: var(--accent-green); }
-    button.btn-danger { background-color: var(--accent-red); }
+    button:active { opacity: 0.85; }
+    button.btn-primary { background-color: var(--accent-profit); color: #0B1120; }
+    button.btn-danger { background-color: var(--accent-expense); color: #ffffff; }
 
-    .table-responsive { overflow-x: auto; }
-
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      margin-top: 0.5rem;
+    /* Transición WOW: Login -> Dashboard */
+    .auth-exit {
+      animation: fadeOutSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards;
     }
 
-    th, td {
-      padding: 0.75rem;
-      text-align: left;
-      border-bottom: 1px solid var(--border-color);
+    @keyframes fadeOutSlide {
+      to { opacity: 0; transform: translateY(-20px); }
     }
 
-    th {
-      color: var(--text-muted);
-      font-size: 0.85rem;
-      text-transform: uppercase;
+    .dashboard-stagger .card-stagger {
+      opacity: 0;
+      transform: translateY(15px);
+      animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
     }
 
-    .badge-warning {
-      background-color: #b45309;
-      color: #fef3c7;
+    .dashboard-stagger .card-stagger:nth-child(1) { animation-delay: 0.05s; }
+    .dashboard-stagger .card-stagger:nth-child(2) { animation-delay: 0.15s; }
+    .dashboard-stagger .card-stagger:nth-child(3) { animation-delay: 0.25s; }
+    .dashboard-stagger .card-stagger:nth-child(4) { animation-delay: 0.35s; }
+
+    @keyframes fadeInUp {
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shake {
+      animation: shake 0.3s ease-in-out;
+    }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-6px); }
+      75% { transform: translateX(6px); }
+    }
+
+    /* Dashboard Grid y Tipografía Financiera */
+    .hero-metric {
+      grid-column: 1 / -1;
+      border-left: 4px solid var(--accent-profit);
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 1rem;
+    }
+
+    @media (min-width: 640px) {
+      .metrics-grid { grid-template-columns: 1fr 1fr; }
+    }
+
+    .val-large {
+      font-size: 2.75rem;
+      line-height: 1.1;
+      color: var(--text-primary);
+      margin: 0.3rem 0;
+      letter-spacing: -0.03em;
+    }
+
+    .badge-trend {
+      font-size: 0.8rem;
+      font-weight: 600;
       padding: 0.15rem 0.4rem;
       border-radius: 4px;
-      font-size: 0.75rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    .trend-up { background: rgba(0, 217, 163, 0.15); color: var(--accent-profit); }
+    .trend-down { background: rgba(255, 90, 95, 0.15); color: var(--accent-expense); }
+
+    /* Barra Segmentada de Recomendaciones */
+    .period-selector {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .period-btn {
+      padding: 0.4rem 0.8rem;
+      font-size: 0.85rem;
+      margin: 0;
+      background: #141B2E;
+      border: 1px solid var(--border-subtle);
+    }
+    .period-btn.active {
+      background: var(--accent-profit);
+      color: #0B1120;
+      font-weight: bold;
     }
 
+    .segmented-bar {
+      display: flex;
+      height: 14px;
+      border-radius: 7px;
+      overflow: hidden;
+      background-color: #070B14;
+      margin: 1rem 0;
+    }
+    .segment { height: 100%; transition: width 0.4s ease; }
+    .seg-inventory { background-color: var(--accent-profit); }
+    .seg-operations { background-color: #3B82F6; }
+    .seg-savings { background-color: var(--accent-recommend); }
+    .seg-personal { background-color: #A855F7; }
+
+    .recommend-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .recommend-item {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+    .recommend-item strong {
+      display: block;
+      color: var(--text-primary);
+      font-family: var(--font-grotesk);
+      font-size: 1.1rem;
+    }
+
+    /* Tablas */
+    .table-responsive { overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
+    th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-subtle); font-size: 0.9rem; }
+    th { color: var(--text-muted); text-transform: none; font-weight: 500; }
+
+    /* Bottom Nav */
     .bottom-nav {
       position: fixed;
-      bottom: 0;
-      left: 0;
-      right: 0;
+      bottom: 0; left: 0; right: 0;
       background-color: var(--bg-card);
       display: flex;
       justify-content: space-around;
-      padding: 0.5rem 0;
-      border-top: 1px solid var(--border-color);
+      padding: 0.6rem 0;
+      border-top: 1px solid var(--border-subtle);
       z-index: 100;
     }
-
     .nav-item {
-      background: none;
-      border: none;
+      background: none; border: none;
       color: var(--text-muted);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      font-size: 0.75rem;
-      margin: 0;
-      padding: 0.2rem;
-      width: auto;
+      display: flex; flex-direction: column; align-items: center;
+      font-size: 0.75rem; margin: 0; padding: 0.2rem; width: auto;
     }
-
-    .nav-item.active {
-      color: var(--accent-blue);
-      font-weight: bold;
-    }
+    .nav-item.active { color: var(--accent-profit); font-weight: 600; }
   </style>
 </head>
 <body>
 
   <header id="app-header" class="hidden">
-    <h2 id="business-display-name">Mi Negocio</h2>
-    <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.4rem 0.8rem; margin: 0;">Salir</button>
+    <h2 id="business-display-name" style="font-size: 1.1rem;">Mi Negocio</h2>
+    <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.35rem 0.8rem; margin: 0; font-size: 0.85rem;">Salir</button>
   </header>
 
   <main class="main-content">
     
     <!-- PANTALLA: LOGIN / REGISTRO -->
     <section id="auth-screen" class="card">
-      <h2 style="margin-bottom: 1rem;">Gestión PYME (Supabase)</h2>
+      <h2 style="margin-bottom: 0.5rem; font-size: 1.5rem;">Gestión PYME</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem; margin-bottom: 1.25rem;">Ingresa tus credenciales para acceder al panel inteligente.</p>
+      
       <form id="login-form">
         <label>Correo Electrónico</label>
         <input type="email" id="auth-email" placeholder="ejemplo@negocio.com" required>
+        
         <label>Contraseña</label>
         <input type="password" id="auth-password" required>
-        <button type="submit">Iniciar Sesión / Registrarse</button>
+        
+        <button type="submit" class="btn-primary">Iniciar Sesión / Registrarse</button>
       </form>
-      <button id="btn-google-auth" style="background-color: #ea4335;">Entrar con Google</button>
+      <button id="btn-google-auth" style="background-color: #1E2942; border: 1px solid var(--border-subtle);">Entrar con Google</button>
     </section>
 
-    <!-- MÓDULO 1: INICIO / DASHBOARD -->
+    <!-- MÓDULO 1: DASHBOARD FINANCIERO -->
     <section id="sec-dashboard" class="view-module hidden">
-      <h2>Resumen de Hoy</h2>
-      <div class="card" style="margin-top: 1rem;">
-        <p style="color: var(--text-muted);">Ventas Totales</p>
-        <h1 id="dash-today-sales" style="color: var(--accent-green);">$0.00</h1>
-        <p style="color: var(--text-muted); margin-top: 0.5rem;">Ganancia Estimada</p>
-        <h3 id="dash-today-profit">$0.00</h3>
+      
+      <div class="period-selector">
+        <button class="period-btn active" data-period="today">Hoy</button>
+        <button class="period-btn" data-period="week">Esta Semana</button>
+        <button class="period-btn" data-period="month">Este Mes</button>
       </div>
-      <div class="card">
-        <h3>Alertas de Stock Bajo</h3>
-        <ul id="dash-low-stock-list" style="margin-top: 0.5rem; padding-left: 1.2rem; color: #f28b82;"></ul>
+
+      <div class="metrics-grid dashboard-stagger">
+        
+        <!-- Tarjeta Hero: Ganancia Neta -->
+        <div class="card hero-metric card-stagger">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 0.9rem;">Ganancia Neta</span>
+            <span id="trend-profit" class="badge-trend trend-up">↑ 0%</span>
+          </div>
+          <div id="dash-net-profit" class="val-large font-numeric" style="color: var(--accent-profit);">$0.00</div>
+          <div style="height: 45px;"><canvas id="chartMiniProfit"></canvas></div>
+        </div>
+
+        <!-- Ventas Totales -->
+        <div class="card card-stagger">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Ventas (Ingresos)</span>
+            <span id="trend-sales" class="badge-trend trend-up">↑ 0%</span>
+          </div>
+          <div id="dash-gross-sales" class="val-large font-numeric" style="font-size: 2rem;">$0.00</div>
+          <div style="height: 35px;"><canvas id="chartMiniSales"></canvas></div>
+        </div>
+
+        <!-- Inversión / Gastos -->
+        <div class="card card-stagger">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <span style="color: var(--text-muted); font-size: 0.85rem;">Costo de Inventario Válido</span>
+            <span id="trend-expenses" class="badge-trend trend-down">↓ 0%</span>
+          </div>
+          <div id="dash-expenses" class="val-large font-numeric" style="font-size: 2rem; color: var(--accent-expense);">$0.00</div>
+          <div style="height: 35px;"><canvas id="chartMiniExpenses"></canvas></div>
+        </div>
+
+        <!-- Motor de Recomendaciones -->
+        <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-recommend);">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Cómo distribuir tu ganancia</h3>
+            <button id="btn-open-settings" style="width: auto; margin:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">Configurar %</button>
+          </div>
+
+          <div class="segmented-bar">
+            <div id="seg-inv" class="segment seg-inventory" style="width: 40%;"></div>
+            <div id="seg-ops" class="segment seg-operations" style="width: 30%;"></div>
+            <div id="seg-sav" class="segment seg-savings" style="width: 15%;"></div>
+            <div id="seg-per" class="segment seg-personal" style="width: 15%;"></div>
+          </div>
+
+          <p id="recommend-advice-text" style="font-size: 0.85rem; color: var(--text-muted);">
+            Basado en tu ganancia, asigna los recursos recomendados para mantener la salud financiera de tu PYME.
+          </p>
+
+          <div class="recommend-grid">
+            <div class="recommend-item">
+              <span style="color: var(--accent-profit);">■ Reinversión Inventario (<span id="lbl-pct-inv">40</span>%)</span>
+              <strong id="rec-val-inv">$0.00</strong>
+            </div>
+            <div class="recommend-item">
+              <span style="color: #3B82F6;">■ Operación / Empleados (<span id="lbl-pct-ops">30</span>%)</span>
+              <strong id="rec-val-ops">$0.00</strong>
+            </div>
+            <div class="recommend-item">
+              <span style="color: var(--accent-recommend);">■ Fondo Emergencia (<span id="lbl-pct-sav">15</span>%)</span>
+              <strong id="rec-val-sav">$0.00</strong>
+            </div>
+            <div class="recommend-item">
+              <span style="color: #A855F7;">■ Uso Personal (<span id="lbl-pct-per">15</span>%)</span>
+              <strong id="rec-val-per">$0.00</strong>
+            </div>
+          </div>
+        </div>
+
+        <!-- Alertas de Stock Bajo -->
+        <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-expense);">
+          <h3>Alertas de Stock Bajo</h3>
+          <ul id="dash-low-stock-list" style="margin-top: 0.5rem; padding-left: 1.2rem; color: var(--accent-expense); font-size: 0.9rem;"></ul>
+        </div>
+
       </div>
     </section>
+
+    <!-- MODAL CONFIGURACIÓN DE PORCENTAJES -->
+    <div id="modal-settings" class="card hidden" style="position: fixed; top: 10%; left: 5%; right: 5%; z-index: 200; border: 2px solid var(--border-subtle); box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);">
+      <h3>Ajustar distribución de ganancia</h3>
+      <p style="font-size: 0.8rem; color: var(--text-muted);">La suma de los 4 campos debe ser exactamente 100%.</p>
+      
+      <label>Reinversión Inventario (%)</label>
+      <input type="number" id="input-pct-inv" value="40" min="0" max="100">
+      
+      <label>Operación / Empleados (%)</label>
+      <input type="number" id="input-pct-ops" value="30" min="0" max="100">
+      
+      <label>Fondo de Emergencia (%)</label>
+      <input type="number" id="input-pct-sav" value="15" min="0" max="100">
+      
+      <label>Uso Personal (%)</label>
+      <input type="number" id="input-pct-per" value="15" min="0" max="100">
+
+      <div style="margin-top: 0.5rem; font-weight: bold; font-size: 0.9rem;" id="sum-pct-indicator">Suma: 100%</div>
+      
+      <button id="btn-save-settings" class="btn-primary">Guardar Configuración</button>
+      <button id="btn-close-settings" style="background: transparent;">Cancelar</button>
+    </div>
 
     <!-- MÓDULO 2: INVENTARIO -->
     <section id="sec-inventory" class="view-module hidden">
       <h2>Inventario</h2>
-      <button id="btn-show-add-product" class="btn-success" style="margin-top: 0.5rem;">+ Nuevo Producto</button>
+      <button id="btn-show-add-product" class="btn-primary" style="margin-top: 0.5rem;">+ Nuevo Producto</button>
 
       <form id="product-form" class="card hidden">
         <h3 id="product-form-title">Guardar Producto</h3>
@@ -230,11 +434,11 @@
         <label>Alerta Stock Mínimo</label>
         <input type="number" id="prod-min" value="3" required>
         
-        <button type="submit" class="btn-success">Guardar</button>
+        <button type="submit" class="btn-primary">Guardar Producto</button>
         <button type="button" id="btn-cancel-product" class="btn-danger">Cancelar</button>
       </form>
 
-      <input type="text" id="inventory-search" placeholder="Buscar por nombre..." style="margin-top: 1rem;">
+      <input type="text" id="inventory-search" placeholder="Buscar producto..." style="margin-top: 1rem;">
       
       <div class="table-responsive">
         <table>
@@ -280,7 +484,7 @@
           </table>
         </div>
 
-        <h2 style="margin-top: 1rem; text-align: right;">Total: $<span id="cart-total">0.00</span></h2>
+        <h2 style="margin-top: 1rem; text-align: right;" class="font-numeric">Total: $<span id="cart-total">0.00</span></h2>
         
         <label>Método de Pago</label>
         <select id="sale-payment-method">
@@ -289,16 +493,16 @@
           <option value="Tarjeta">Tarjeta</option>
         </select>
         
-        <button id="btn-process-sale" class="btn-success" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">Completar Venta</button>
+        <button id="btn-process-sale" class="btn-primary" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">Completar Venta</button>
       </div>
     </section>
 
     <!-- MÓDULO 4: REPORTES -->
     <section id="sec-reports" class="view-module hidden">
-      <h2>Reportes</h2>
+      <h2>Reportes Integrados</h2>
       <div class="card" style="margin-top: 0.5rem;">
-        <h3>Ventas Recientes</h3>
-        <canvas id="salesChart" width="400" height="250" style="margin-top: 1rem;"></canvas>
+        <h3>Tendencia Histórica de Ventas</h3>
+        <div style="height: 250px; margin-top: 1rem;"><canvas id="salesChart"></canvas></div>
       </div>
       <button id="btn-export-pdf" style="margin-top: 0.5rem;">Exportar Historial a PDF</button>
     </section>
@@ -311,7 +515,7 @@
         <input type="text" id="cust-name" required>
         <label>Teléfono</label>
         <input type="tel" id="cust-phone">
-        <button type="submit" class="btn-success">Guardar Cliente</button>
+        <button type="submit" class="btn-primary">Guardar Cliente</button>
       </form>
 
       <div class="table-responsive">
@@ -330,7 +534,7 @@
   </main>
 
   <nav id="app-nav" class="bottom-nav hidden">
-    <button class="nav-item active" data-target="sec-dashboard">Inicio</button>
+    <button class="nav-item active" data-target="sec-dashboard">Dashboard</button>
     <button class="nav-item" data-target="sec-inventory">Inventario</button>
     <button class="nav-item" data-target="sec-sales">Ventas</button>
     <button class="nav-item" data-target="sec-reports">Reportes</button>
@@ -339,9 +543,9 @@
 
   <script type="module">
     // -------------------------------------------------------------
-    // 1. INICIALIZACIÓN DE SUPABASE
+    // 1. INICIALIZACIÓN SUPABASE
     // -------------------------------------------------------------
-    const SUPABASE_URL ="https://fiuriowywsjqxujpdzpe.supabase.co";
+    const SUPABASE_URL = "https://fiuriowywsjqxujpdzpe.supabase.co";
     const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZpdXJpb3d5d3NqcXh1anBkenBlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODgyMzY2NjMsImV4cCI6MjEwMzgxMjY2M30.r8o38yXRF6kezo0gOuylaku8wMOXKR6siiFRP16yhe8";
 
     const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -353,14 +557,18 @@
     let inventorySnapshot = [];
     let salesHistory = [];
     let cart = [];
-    let chartInstance = null;
+    let activePeriod = 'today';
+    let userSettings = { pct_inventory: 40, pct_operations: 30, pct_savings: 15, pct_personal: 15 };
+    
+    // Instancias de Gráficos
+    let chartProfit = null, chartSales = null, chartExpenses = null, chartReport = null;
 
     // -------------------------------------------------------------
     // 3. SERVICE WORKER PWA
     // -------------------------------------------------------------
     if ('serviceWorker' in navigator) {
       const swCode = `
-        const CACHE = 'pyme-supabase-v1';
+        const CACHE = 'pyme-supabase-v2';
         self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(['./']))));
         self.addEventListener('fetch', e => e.respondWith(caches.match(e.request).then(r => r || fetch(e.request))));
       `;
@@ -369,7 +577,7 @@
     }
 
     // -------------------------------------------------------------
-    // 4. CONTROL DE NAVEGACIÓN (SPA)
+    // 4. CONTROL DE NAVEGACIÓN
     // -------------------------------------------------------------
     const navButtons = document.querySelectorAll('.nav-item');
     const modules = document.querySelectorAll('.view-module');
@@ -385,105 +593,302 @@
       });
     });
 
+    // Selector de Período en Dashboard
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activePeriod = e.target.dataset.period;
+        calculateFinancialDashboard();
+      });
+    });
+
+    // Modal de Configuración
+    document.getElementById('btn-open-settings').onclick = () => document.getElementById('modal-settings').classList.remove('hidden');
+    document.getElementById('btn-close-settings').onclick = () => document.getElementById('modal-settings').classList.add('hidden');
+
+    // Validación interactiva de porcentajes
+    const inputsPct = ['input-pct-inv', 'input-pct-ops', 'input-pct-sav', 'input-pct-per'];
+    inputsPct.forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        const sum = inputsPct.reduce((acc, currId) => acc + (parseInt(document.getElementById(currId).value) || 0), 0);
+        const indicator = document.getElementById('sum-pct-indicator');
+        indicator.textContent = `Suma: ${sum}%`;
+        indicator.style.color = sum === 100 ? 'var(--accent-profit)' : 'var(--accent-expense)';
+      });
+    });
+
+    document.getElementById('btn-save-settings').onclick = async () => {
+      const pInv = parseInt(document.getElementById('input-pct-inv').value) || 0;
+      const pOps = parseInt(document.getElementById('input-pct-ops').value) || 0;
+      const pSav = parseInt(document.getElementById('input-pct-sav').value) || 0;
+      const pPer = parseInt(document.getElementById('input-pct-per').value) || 0;
+
+      if (pInv + pOps + pSav + pPer !== 100) {
+        document.getElementById('modal-settings').classList.add('shake');
+        setTimeout(() => document.getElementById('modal-settings').classList.remove('shake'), 300);
+        alert("La suma de los porcentajes debe ser exactamente 100%");
+        return;
+      }
+
+      userSettings = { pct_inventory: pInv, pct_operations: pOps, pct_savings: pSav, pct_personal: pPer };
+
+      const { error } = await supabase.from('business_settings').upsert({
+        business_id: currentBusinessId,
+        ...userSettings,
+        updated_at: new Date()
+      });
+
+      if (error) alert("Error guardando ajustes: " + error.message);
+      else {
+        document.getElementById('modal-settings').classList.add('hidden');
+        applySettingsToUI();
+        calculateFinancialDashboard();
+      }
+    };
+
     // -------------------------------------------------------------
-    // 5. AUTENTICACIÓN (Supabase Auth)
+    // 5. AUTENTICACIÓN & TRANSICIÓN WOW
     // -------------------------------------------------------------
-  let modulesInitialized = false;
-  
-const loginForm = document.getElementById('login-form');
-const googleBtn = document.getElementById('btn-google-auth');
-const logoutBtn = document.getElementById('btn-logout');
+    let modulesInitialized = false;
 
-loginForm.addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const email = document.getElementById('auth-email').value;
-  const password = document.getElementById('auth-password').value;
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('auth-email').value;
+      const password = document.getElementById('auth-password').value;
 
-  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        const { error: signUpError } = await supabase.auth.signUp({ email, password });
+        if (signUpError) {
+          document.getElementById('auth-screen').classList.add('shake');
+          setTimeout(() => document.getElementById('auth-screen').classList.remove('shake'), 300);
+          alert("Error autenticación: " + signUpError.message);
+        }
+      }
+    });
 
-  if (error) {
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
-    if (signUpError) {
-      alert("Error de autenticación: " + signUpError.message);
-    } else {
-      alert("Registro exitoso. Revisa tu correo o inicia sesión.");
-    }
-  }
-});
-
-googleBtn.addEventListener('click', async () => {
-  const { error } = await supabase.auth.signInWithOAuth({
-    provider: 'google',
-    options: { redirectTo: window.location.href }
-  });
+    document.getElementById('btn-google-auth').onclick = async () => {
+  const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.href } });
   if (error) alert("Error OAuth: " + error.message);
-});
+};
 
-logoutBtn.addEventListener('click', () => supabase.auth.signOut());
+    document.getElementById('btn-logout').onclick = () => supabase.auth.signOut();
 
-supabase.auth.onAuthStateChange(async (event, session) => {
-  if (session?.user) {
-    currentBusinessId = session.user.id;
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (session?.user) {
+        currentBusinessId = session.user.id;
 
-    // Asegurar que exista el registro en la tabla businesses
-    const { data: business } = await supabase
-      .from('businesses')
-      .select('id')
-      .eq('id', currentBusinessId)
-      .single();
+        // Cargar o crear Settings por defecto
+        const { data: bData } = await supabase.from('businesses').select('id').eq('id', currentBusinessId).single();
+        if (!bData) await supabase.from('businesses').insert([{ id: currentBusinessId, name: 'Mi Negocio' }]);
 
-    if (!business) {
-      await supabase.from('businesses').insert([{ id: currentBusinessId, name: 'Mi Negocio' }]);
+        const { data: sData } = await supabase.from('business_settings').select('*').eq('business_id', currentBusinessId).single();
+        if (sData) {
+          userSettings = { pct_inventory: sData.pct_inventory, pct_operations: sData.pct_operations, pct_savings: sData.pct_savings, pct_personal: sData.pct_personal };
+        }
+
+        applySettingsToUI();
+
+        // Momento WOW: Desvanecer Auth Screen y desplegar Dashboard con Animación
+        const authScreen = document.getElementById('auth-screen');
+        authScreen.classList.add('auth-exit');
+        
+        setTimeout(() => {
+          authScreen.classList.add('hidden');
+          authScreen.classList.remove('auth-exit');
+          
+          document.getElementById('app-header').classList.remove('hidden');
+          document.getElementById('app-nav').classList.remove('hidden');
+          document.getElementById('sec-dashboard').classList.remove('hidden');
+
+          if (!modulesInitialized) {
+            initInventory();
+            initSales();
+            initReports();
+            initCustomers();
+            modulesInitialized = true;
+          }
+        }, 350);
+
+      } else {
+        currentBusinessId = null;
+        modulesInitialized = false;
+        supabase.removeAllChannels();
+
+        document.getElementById('auth-screen').classList.remove('hidden');
+        document.getElementById('app-header').classList.add('hidden');
+        document.getElementById('app-nav').classList.add('hidden');
+        modules.forEach(m => m.classList.add('hidden'));
+      }
+    });
+
+    function applySettingsToUI() {
+      document.getElementById('lbl-pct-inv').textContent = userSettings.pct_inventory;
+      document.getElementById('lbl-pct-ops').textContent = userSettings.pct_operations;
+      document.getElementById('lbl-pct-sav').textContent = userSettings.pct_savings;
+      document.getElementById('lbl-pct-per').textContent = userSettings.pct_personal;
+
+      document.getElementById('seg-inv').style.width = `${userSettings.pct_inventory}%`;
+      document.getElementById('seg-ops').style.width = `${userSettings.pct_operations}%`;
+      document.getElementById('seg-sav').style.width = `${userSettings.pct_savings}%`;
+      document.getElementById('seg-per').style.width = `${userSettings.pct_personal}%`;
+
+      document.getElementById('input-pct-inv').value = userSettings.pct_inventory;
+      document.getElementById('input-pct-ops').value = userSettings.pct_operations;
+      document.getElementById('input-pct-sav').value = userSettings.pct_savings;
+      document.getElementById('input-pct-per').value = userSettings.pct_personal;
     }
-
-    document.getElementById('auth-screen').classList.add('hidden');
-    document.getElementById('app-header').classList.remove('hidden');
-    document.getElementById('app-nav').classList.remove('hidden');
-    document.getElementById('sec-dashboard').classList.remove('hidden');
-
-    if (!modulesInitialized) {
-      initInventory();
-      initSales();
-      initReports();
-      initCustomers();
-      modulesInitialized = true;
-    }
-  } else {
-    currentBusinessId = null;
-    modulesInitialized = false;
-    supabase.removeAllChannels(); // limpia las suscripciones al salir
-
-    document.getElementById('auth-screen').classList.remove('hidden');
-    document.getElementById('app-header').classList.add('hidden');
-    document.getElementById('app-nav').classList.add('hidden');
-    modules.forEach(m => m.classList.add('hidden'));
-  }
-});
 
     // -------------------------------------------------------------
-    // 6. MÓDULO DE INVENTARIO (Postgres + Supabase Realtime)
+    // 6. DASHBOARD FINANCIERO AVANZADO (CÁLCULOS & ANIMACIÓN)
+    // -------------------------------------------------------------
+    function calculateFinancialDashboard() {
+      const now = new Date();
+      let filteredSales = [];
+      let prevSales = [];
+
+      // Filtrado por Período
+      salesHistory.forEach(s => {
+        const d = new Date(s.created_at);
+        if (activePeriod === 'today') {
+          if (d.toDateString() === now.toDateString()) filteredSales.push(s);
+          const yesterday = new Date(now); yesterday.setDate(now.getDate() - 1);
+          if (d.toDateString() === yesterday.toDateString()) prevSales.push(s);
+        } else if (activePeriod === 'week') {
+          const diffDays = Math.ceil(Math.abs(now - d) / (1000 * 60 * 60 * 24));
+          if (diffDays <= 7) filteredSales.push(s);
+          else if (diffDays > 7 && diffDays <= 14) prevSales.push(s);
+        } else if (activePeriod === 'month') {
+          if (d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()) filteredSales.push(s);
+          if (d.getMonth() === now.getMonth() - 1 && d.getFullYear() === now.getFullYear()) prevSales.push(s);
+        }
+      });
+
+      // Cálculos Actuales
+      const grossSales = filteredSales.reduce((acc, s) => acc + parseFloat(s.total), 0);
+      const netProfit = filteredSales.reduce((acc, s) => acc + parseFloat(s.profit), 0);
+      const expenses = grossSales - netProfit;
+
+      // Cálculos Previos para % Cambio
+      const prevGross = prevSales.reduce((acc, s) => acc + parseFloat(s.total), 0);
+      const prevProfit = prevSales.reduce((acc, s) => acc + parseFloat(s.profit), 0);
+      const prevExpenses = prevGross - prevProfit;
+
+      // Renderizar Números Animados (Caja Registradora)
+      animateCounter('dash-net-profit', netProfit);
+      document.getElementById('dash-gross-sales').textContent = `$${grossSales.toFixed(2)}`;
+      document.getElementById('dash-expenses').textContent = `$${expenses.toFixed(2)}`;
+
+      // Indicadores de Tendencia
+      updateTrendBadge('trend-profit', netProfit, prevProfit);
+      updateTrendBadge('trend-sales', grossSales, prevGross);
+      updateTrendBadge('trend-expenses', expenses, prevExpenses, true);
+
+      // Motor de Recomendaciones
+      const recInv = (netProfit * userSettings.pct_inventory) / 100;
+      const recOps = (netProfit * userSettings.pct_operations) / 100;
+      const recSav = (netProfit * userSettings.pct_savings) / 100;
+      const recPer = (netProfit * userSettings.pct_personal) / 100;
+
+      document.getElementById('rec-val-inv').textContent = `$${recInv.toFixed(2)}`;
+      document.getElementById('rec-val-ops').textContent = `$${recOps.toFixed(2)}`;
+      document.getElementById('rec-val-sav').textContent = `$${recSav.toFixed(2)}`;
+      document.getElementById('rec-val-per').textContent = `$${recPer.toFixed(2)}`;
+
+      document.getElementById('recommend-advice-text').textContent = 
+        `Con $${netProfit.toFixed(2)} de ganancia neta en este período, asigna $${recInv.toFixed(2)} a reponer inventario y $${recOps.toFixed(2)} a gastos operativos.`;
+
+      // Sparklines / Mini Charts
+      renderMiniCharts(filteredSales);
+    }
+
+    function animateCounter(elementId, targetVal) {
+      const el = document.getElementById(elementId);
+      let start = 0;
+      const duration = 1000;
+      const startTime = performance.now();
+
+      function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        const currentVal = start + (targetVal - start) * progress;
+        el.textContent = `$${currentVal.toFixed(2)}`;
+        if (progress < 1) requestAnimationFrame(update);
+      }
+      requestAnimationFrame(update);
+    }
+
+    function updateTrendBadge(elemId, current, prev, isExpense = false) {
+      const el = document.getElementById(elemId);
+      if (prev === 0) {
+        el.textContent = '↑ 0%';
+        el.className = 'badge-trend trend-up';
+        return;
+      }
+      const diff = ((current - prev) / prev) * 100;
+      const isUp = diff >= 0;
+      el.textContent = `${isUp ? '↑' : '↓'} ${Math.abs(diff).toFixed(1)}%`;
+      
+      if (isExpense) {
+        el.className = `badge-trend ${isUp ? 'trend-down' : 'trend-up'}`;
+      } else {
+        el.className = `badge-trend ${isUp ? 'trend-up' : 'trend-down'}`;
+      }
+    }
+
+    function renderMiniCharts(sales) {
+      const labels = sales.map((_, i) => i + 1);
+      const profitData = sales.map(s => parseFloat(s.profit));
+      const salesData = sales.map(s => parseFloat(s.total));
+      const expData = sales.map(s => parseFloat(s.total) - parseFloat(s.profit));
+
+      const opt = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { x: { display: false }, y: { display: false } },
+        elements: { point: { radius: 0 }, line: { borderWidth: 2 } }
+      };
+
+      if (chartProfit) chartProfit.destroy();
+      chartProfit = new Chart(document.getElementById('chartMiniProfit'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: profitData, borderColor: '#00D9A3', backgroundColor: 'rgba(0,217,163,0.1)', fill: true }] },
+        options: opt
+      });
+
+      if (chartSales) chartSales.destroy();
+      chartSales = new Chart(document.getElementById('chartMiniSales'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: salesData, borderColor: '#3B82F6' }] },
+        options: opt
+      });
+
+      if (chartExpenses) chartExpenses.destroy();
+      chartExpenses = new Chart(document.getElementById('chartMiniExpenses'), {
+        type: 'line',
+        data: { labels, datasets: [{ data: expData, borderColor: '#FF5A5F' }] },
+        options: opt
+      });
+    }
+
+    // -------------------------------------------------------------
+    // 7. INVENTARIO & REALTIME
     // -------------------------------------------------------------
     async function initInventory() {
       const form = document.getElementById('product-form');
-      const btnShowAdd = document.getElementById('btn-show-add-product');
-      const btnCancel = document.getElementById('btn-cancel-product');
       const searchInput = document.getElementById('inventory-search');
 
-      btnShowAdd.onclick = () => {
+      document.getElementById('btn-show-add-product').onclick = () => {
         form.reset();
         document.getElementById('prod-id').value = '';
         form.classList.remove('hidden');
       };
 
-      btnCancel.onclick = () => form.classList.add('hidden');
+      document.getElementById('btn-cancel-product').onclick = () => form.classList.add('hidden');
 
-      // Función para cargar datos iniciales
       const loadProducts = async () => {
-        const { data, error } = await supabase
-          .from('products')
-          .select('*')
-          .eq('business_id', currentBusinessId);
-
+        const { data, error } = await supabase.from('products').select('*').eq('business_id', currentBusinessId);
         if (!error && data) {
           inventorySnapshot = data;
           renderInventoryTable(inventorySnapshot);
@@ -494,17 +899,14 @@ supabase.auth.onAuthStateChange(async (event, session) => {
 
       await loadProducts();
 
-    supabase.channel('public:products')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${currentBusinessId}` }, () => {
-        loadProducts();
-      })
-      .subscribe();
+      supabase.channel('public:products')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `business_id=eq.${currentBusinessId}` }, loadProducts)
+        .subscribe();
 
-      // Guardar / Modificar producto
       form.onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById('prod-id').value;
-        const productPayload = {
+        const payload = {
           business_id: currentBusinessId,
           name: document.getElementById('prod-name').value,
           purchase_price: parseFloat(document.getElementById('prod-cost').value),
@@ -514,25 +916,15 @@ supabase.auth.onAuthStateChange(async (event, session) => {
           updated_at: new Date()
         };
 
-        let result;
-        if (id) {
-          result = await supabase.from('products').update(productPayload).eq('id', id);
-        } else {
-          result = await supabase.from('products').insert([productPayload]);
-        }
+        const res = id ? await supabase.from('products').update(payload).eq('id', id) : await supabase.from('products').insert([payload]);
 
-        if (result.error) {
-          alert("Error al guardar producto: " + result.error.message);
-        } else {
-          form.classList.add('hidden');
-          form.reset();
-        }
+        if (res.error) alert("Error guardando producto: " + res.error.message);
+        else { form.classList.add('hidden'); form.reset(); }
       };
 
       searchInput.oninput = (e) => {
         const term = e.target.value.toLowerCase();
-        const filtered = inventorySnapshot.filter(p => p.name.toLowerCase().includes(term));
-        renderInventoryTable(filtered);
+        renderInventoryTable(inventorySnapshot.filter(p => p.name.toLowerCase().includes(term)));
       };
     }
 
@@ -543,12 +935,10 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         const isLow = p.stock <= p.min_stock;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${p.name} ${isLow ? '<span class="badge-warning">Bajo</span>' : ''}</td>
-          <td>$${parseFloat(p.sale_price).toFixed(2)}</td>
+          <td>${p.name} ${isLow ? '<span style="color:var(--accent-expense); font-size:0.75rem;">(Bajo)</span>' : ''}</td>
+          <td class="font-numeric">$${parseFloat(p.sale_price).toFixed(2)}</td>
           <td>${p.stock}</td>
-          <td>
-            <button class="btn-edit" data-id="${p.id}" style="width:auto; padding:0.2rem 0.5rem; margin:0;">Editar</button>
-          </td>
+          <td><button class="btn-edit" data-id="${p.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Editar</button></td>
         `;
         tbody.appendChild(tr);
       });
@@ -571,101 +961,76 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     function updateDashboardLowStock(products) {
       const list = document.getElementById('dash-low-stock-list');
       list.innerHTML = '';
-      const lowStockItems = products.filter(p => p.stock <= p.min_stock);
-      
-      if(lowStockItems.length === 0) {
-        list.innerHTML = '<li>Stock normal en todos los productos</li>';
+      const lowStock = products.filter(p => p.stock <= p.min_stock);
+      if (lowStock.length === 0) {
+        list.innerHTML = '<li style="color: var(--text-muted); list-style: none;">Sin alertas de stock.</li>';
         return;
       }
-
-      lowStockItems.forEach(p => {
+      lowStock.forEach(p => {
         const li = document.createElement('li');
-        li.textContent = `${p.name} - Quedan solo ${p.stock} unidad(es)`;
+        li.textContent = `${p.name} (Quedan ${p.stock} unidades)`;
         list.appendChild(li);
       });
     }
 
     // -------------------------------------------------------------
-    // 7. MÓDULO DE VENTAS (POS)
+    // 8. MÓDULO DE VENTAS (POS)
     // -------------------------------------------------------------
     function initSales() {
-      const btnAdd = document.getElementById('btn-add-to-cart');
-      const btnProcess = document.getElementById('btn-process-sale');
-
-      btnAdd.onclick = () => {
-        const select = document.getElementById('sale-product-select');
-        const qtyInput = document.getElementById('sale-qty');
-        const productId = select.value;
-        const qty = parseInt(qtyInput.value);
+      document.getElementById('btn-add-to-cart').onclick = () => {
+        const productId = document.getElementById('sale-product-select').value;
+        const qty = parseInt(document.getElementById('sale-qty').value);
 
         if (!productId || qty <= 0) return;
         const product = inventorySnapshot.find(p => p.id === productId);
-        if (!product) return;
-
-        if (qty > product.stock) {
-          alert("Cantidad solicitada excede el stock disponible.");
+        if (!product || qty > product.stock) {
+          alert("Stock insuficiente.");
           return;
         }
 
-        const existingIndex = cart.findIndex(item => item.id === productId);
-        if (existingIndex > -1) {
-          if (cart[existingIndex].qty + qty > product.stock) {
-            alert("No hay suficiente stock restante.");
-            return;
-          }
-          cart[existingIndex].qty += qty;
-          cart[existingIndex].subtotal = cart[existingIndex].qty * parseFloat(product.sale_price);
+        const idx = cart.findIndex(i => i.id === productId);
+        if (idx > -1) {
+          if (cart[idx].qty + qty > product.stock) return alert("Excede el stock.");
+          cart[idx].qty += qty;
+          cart[idx].subtotal = cart[idx].qty * parseFloat(product.sale_price);
         } else {
           cart.push({
-            id: product.id,
-            name: product.name,
-            cost: parseFloat(product.purchase_price),
-            price: parseFloat(product.sale_price),
-            qty: qty,
-            subtotal: qty * parseFloat(product.sale_price)
+            id: product.id, name: product.name,
+            cost: parseFloat(product.purchase_price), price: parseFloat(product.sale_price),
+            qty: qty, subtotal: qty * parseFloat(product.sale_price)
           });
         }
         renderCart();
       };
 
-      btnProcess.onclick = async () => {
-        if (cart.length === 0) {
-          alert("Agrega al menos un producto al carrito.");
-          return;
-        }
+      document.getElementById('btn-process-sale').onclick = async () => {
+        if (cart.length === 0) return alert("Carrito vacío.");
 
         const paymentMethod = document.getElementById('sale-payment-method').value;
-        const totalAmount = cart.reduce((acc, item) => acc + item.subtotal, 0);
-        const totalCost = cart.reduce((acc, item) => acc + (item.cost * item.qty), 0);
+        const totalAmount = cart.reduce((acc, i) => acc + i.subtotal, 0);
+        const totalCost = cart.reduce((acc, i) => acc + (i.cost * i.qty), 0);
 
         try {
-          // 1. Insertar venta en Postgres (items como JSONB)
-          const { error: saleError } = await supabase.from('sales').insert([{
-            business_id: currentBusinessId,
-            items: cart,
-            total: totalAmount,
-            profit: totalAmount - totalCost,
+          const { error: saleErr } = await supabase.from('sales').insert([{
+            business_id: currentBusinessId, items: cart,
+            total: totalAmount, profit: totalAmount - totalCost,
             payment_method: paymentMethod
           }]);
 
-          if (saleError) throw saleError;
+          if (saleErr) throw saleErr;
 
-          // 2. Descontar Stock de cada producto consumido
           for (const item of cart) {
             const currentProd = inventorySnapshot.find(p => p.id === item.id);
             if (currentProd) {
-              await supabase
-                .from('products')
-                .update({ stock: currentProd.stock - item.qty })
-                .eq('id', item.id);
+              await supabase.from('products').update({ stock: currentProd.stock - item.qty }).eq('id', item.id);
             }
           }
 
-          alert("Venta completada con éxito.");
           cart = [];
           renderCart();
+          alert("Venta completada.");
         } catch (err) {
-          alert("Error al procesar la venta: " + err.message);
+          alert("Error en la venta: " + err.message);
         }
       };
     }
@@ -676,16 +1041,14 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       products.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = `${p.name} ($${parseFloat(p.sale_price).toFixed(2)} - Stock: ${p.stock})`;
+        opt.textContent = `${p.name} ($${parseFloat(p.sale_price).toFixed(2)} | Stock: ${p.stock})`;
         select.appendChild(opt);
       });
     }
 
     function renderCart() {
       const tbody = document.getElementById('cart-table-body');
-      const totalSpan = document.getElementById('cart-total');
       tbody.innerHTML = '';
-
       let total = 0;
       cart.forEach((item, index) => {
         total += item.subtotal;
@@ -693,14 +1056,13 @@ supabase.auth.onAuthStateChange(async (event, session) => {
         tr.innerHTML = `
           <td>${item.name}</td>
           <td>${item.qty}</td>
-          <td>$${item.subtotal.toFixed(2)}</td>
-          <td><button class="btn-danger btn-remove" data-index="${index}" style="width:auto; padding:0.1rem 0.4rem; margin:0;">X</button></td>
+          <td class="font-numeric">$${item.subtotal.toFixed(2)}</td>
+          <td><button class="btn-danger btn-remove" data-index="${index}" style="padding:0.1rem 0.4rem; margin:0; font-size:0.75rem;">X</button></td>
         `;
         tbody.appendChild(tr);
       });
 
-      totalSpan.textContent = total.toFixed(2);
-
+      document.getElementById('cart-total').textContent = total.toFixed(2);
       tbody.querySelectorAll('.btn-remove').forEach(btn => {
         btn.onclick = (e) => {
           cart.splice(parseInt(e.target.dataset.index), 1);
@@ -710,80 +1072,45 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     }
 
     // -------------------------------------------------------------
-    // 8. MÓDULO DE REPORTES Y GRÁFICOS
+    // 9. REPORTES & CLIENTES
     // -------------------------------------------------------------
     async function initReports() {
       const loadSales = async () => {
-        const { data, error } = await supabase
-          .from('sales')
-          .select('*')
-          .eq('business_id', currentBusinessId)
-          .order('created_at', { ascending: false });
-
+        const { data, error } = await supabase.from('sales').select('*').eq('business_id', currentBusinessId).order('created_at', { ascending: false });
         if (!error && data) {
           salesHistory = data;
-          updateDashboardSales(salesHistory);
-          renderChart(salesHistory);
+          calculateFinancialDashboard();
+          renderReportChart(salesHistory);
         }
       };
 
       await loadSales();
 
       supabase.channel('public:sales')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales' }, () => {
-          loadSales();
-        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'sales', filter: `business_id=eq.${currentBusinessId}` }, loadSales)
         .subscribe();
 
       document.getElementById('btn-export-pdf').onclick = exportPDF;
     }
 
-    function updateDashboardSales(sales) {
-      const todayStr = new Date().toDateString();
-      let todaySalesTotal = 0;
-      let todayProfitTotal = 0;
-
-      sales.forEach(s => {
-        if (s.created_at && new Date(s.created_at).toDateString() === todayStr) {
-          todaySalesTotal += parseFloat(s.total);
-          todayProfitTotal += parseFloat(s.profit);
-        }
-      });
-
-      document.getElementById('dash-today-sales').textContent = `$${todaySalesTotal.toFixed(2)}`;
-      document.getElementById('dash-today-profit').textContent = `$${todayProfitTotal.toFixed(2)}`;
-    }
-
-    function renderChart(sales) {
+    function renderReportChart(sales) {
       const ctx = document.getElementById('salesChart');
       if (!ctx) return;
-
-      const lastSales = sales.slice(0, 7).reverse();
+      const lastSales = sales.slice(0, 10).reverse();
       const labels = lastSales.map(s => s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Hoy');
       const data = lastSales.map(s => parseFloat(s.total));
 
-      if (chartInstance) chartInstance.destroy();
-
-      chartInstance = new Chart(ctx, {
-        type: 'line',
+      if (chartReport) chartReport.destroy();
+      chartReport = new Chart(ctx, {
+        type: 'bar',
         data: {
-          labels: labels,
-          datasets: [{
-            label: 'Ventas Recientes ($)',
-            data: data,
-            borderColor: '#2563eb',
-            backgroundColor: 'rgba(37, 99, 235, 0.1)',
-            fill: true,
-            tension: 0.3
-          }]
+          labels,
+          datasets: [{ label: 'Ventas ($)', data, backgroundColor: '#00D9A3', borderRadius: 4 }]
         },
         options: {
-          responsive: true,
-          plugins: { legend: { labels: { color: '#f8fafc' } } },
-          scales: {
-            x: { ticks: { color: '#94a3b8' } },
-            y: { ticks: { color: '#94a3b8' } }
-          }
+          responsive: true, maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#8891A8' } } },
+          scales: { x: { ticks: { color: '#8891A8' } }, y: { ticks: { color: '#8891A8' } } }
         }
       });
     }
@@ -791,43 +1118,20 @@ supabase.auth.onAuthStateChange(async (event, session) => {
     function exportPDF() {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text("Reporte de Historial de Ventas", 14, 20);
-
-      doc.setFontSize(10);
+      doc.text("Reporte de Ventas", 14, 20);
       let y = 35;
-      
-      doc.text("Fecha", 14, y);
-      doc.text("Método", 60, y);
-      doc.text("Total", 120, y);
-      y += 5;
-      doc.line(14, y, 190, y);
-      y += 10;
-
       salesHistory.slice(0, 20).forEach(s => {
-        const fecha = s.created_at ? new Date(s.created_at).toLocaleDateString() : 'Reciente';
-        doc.text(fecha, 14, y);
-        doc.text(s.payment_method || 'Efectivo', 60, y);
-        doc.text(`$${parseFloat(s.total).toFixed(2)}`, 120, y);
-        y += 10;
+        doc.text(`${new Date(s.created_at).toLocaleDateString()} - $${parseFloat(s.total).toFixed(2)} (${s.payment_method})`, 14, y);
+        y += 8;
       });
-
       doc.save("Reporte_Ventas.pdf");
     }
 
-    // -------------------------------------------------------------
-    // 9. MÓDULO DE CLIENTES
-    // -------------------------------------------------------------
     async function initCustomers() {
       const form = document.getElementById('customer-form');
-
       const loadCustomers = async () => {
-        const { data, error } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('business_id', currentBusinessId);
-
-        if (!error && data) {
+        const { data } = await supabase.from('customers').select('*').eq('business_id', currentBusinessId);
+        if (data) {
           const tbody = document.getElementById('customers-table-body');
           tbody.innerHTML = '';
           data.forEach(c => {
@@ -839,29 +1143,12 @@ supabase.auth.onAuthStateChange(async (event, session) => {
       };
 
       await loadCustomers();
-
-      supabase.channel('public:customers')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, () => {
-          loadCustomers();
-        })
-        .subscribe();
+      supabase.channel('public:customers').on('postgres_changes', { event: '*', schema: 'public', table: 'customers' }, loadCustomers).subscribe();
 
       form.onsubmit = async (e) => {
         e.preventDefault();
-        const name = document.getElementById('cust-name').value;
-        const phone = document.getElementById('cust-phone').value;
-
-        const { error } = await supabase.from('customers').insert([{
-          business_id: currentBusinessId,
-          name,
-          phone
-        }]);
-
-        if (error) {
-          alert("Error al registrar cliente: " + error.message);
-        } else {
-          form.reset();
-        }
+        await supabase.from('customers').insert([{ business_id: currentBusinessId, name: document.getElementById('cust-name').value, phone: document.getElementById('cust-phone').value }]);
+        form.reset();
       };
     }
   </script>
