@@ -908,9 +908,6 @@
     // Si la app ya está inicializada, esto es solo una renovación de token en segundo plano — no tocar la UI
     if (modulesInitialized) return;
 
-    // Consulta de Negocio & Onboarding Status
-    let { data: bData } = await supabase.from('businesses').select('*').eq('id', currentBusinessId).single();
-
         // Consulta de Negocio & Onboarding Status
         let { data: bData } = await supabase.from('businesses').select('*').eq('id', currentBusinessId).single();
         
