@@ -689,17 +689,21 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
-    const { error: signUpError } = await supabase.auth.signUp({ email, password });
+    const baseUrl = window.location.origin + window.location.pathname;
+    const redirectUrl = inviteCode ? `${baseUrl}?invite=${encodeURIComponent(inviteCode)}` : baseUrl;
+
+    const { error: signUpError } = await supabase.auth.signUp({
+      email,
+      password,
+      options: { emailRedirectTo: redirectUrl }
+    });
+
     if (signUpError) {
       alert("Error de autenticación: " + signUpError.message);
       return;
     }
 
-    if (inviteCode) {
-      localStorage.setItem('pendingInviteCode', inviteCode);
-    }
-
-    alert("Registro exitoso. Revisa tu correo para confirmar la cuenta antes de iniciar sesión.");
+    alert("Registro exitoso. Revisa tu correo (en cualquier dispositivo) para confirmar la cuenta.");
   }
 });
     supabase.auth.onAuthStateChange(async (event, session) => {
@@ -707,11 +711,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         const userId = session.user.id;
         if (modulesInitialized) return;
 
-        // Canjear código de invitación pendiente (si el usuario venía de un registro de empleado)
-        const pendingCode = localStorage.getItem('pendingInviteCode');
+        // Canjear código de invitación pendiente (viene desde la URL del link de confirmación)
+        const urlParams = new URLSearchParams(window.location.search);
+        const pendingCode = urlParams.get('invite');
         if (pendingCode) {
           const { data: redeemedBusinessId, error: redeemError } = await supabase.rpc('redeem_invite_code', { input_code: pendingCode });
-          localStorage.removeItem('pendingInviteCode');
+          window.history.replaceState({}, document.title, window.location.pathname);
 
           if (redeemError) {
             alert("El código de invitación no es válido o ya fue usado: " + redeemError.message);
