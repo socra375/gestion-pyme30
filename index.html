@@ -677,6 +677,16 @@
       });
     });
 
+    // Selector de Período en Dashboard
+    document.querySelectorAll('.period-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.period-btn').forEach(b => b.classList.remove('active'));
+        e.target.classList.add('active');
+        activePeriod = e.target.dataset.period;
+        calculateFinancialDashboard();
+      });
+    });
+    
     // -------------------------------------------------------------
     // 4. AUTENTICACIÓN, ROLES & REGISTRO DE EMPLEADOS
     // -------------------------------------------------------------
@@ -1197,6 +1207,19 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       const profitRatio = grossSales > 0 ? ((netProfit / grossSales) * 100).toFixed(0) : 0;
       document.getElementById('dash-profit-ratio').textContent = `${profitRatio}% de ventas`;
 
+      const recInv = (netProfit * userSettings.pct_inventory) / 100;
+      const recOps = (netProfit * userSettings.pct_operations) / 100;
+      const recSav = (netProfit * userSettings.pct_savings) / 100;
+      const recPer = (netProfit * userSettings.pct_personal) / 100;
+
+      document.getElementById('rec-val-inv').textContent = `$${recInv.toFixed(2)}`;
+      document.getElementById('rec-val-ops').textContent = `$${recOps.toFixed(2)}`;
+      document.getElementById('rec-val-sav').textContent = `$${recSav.toFixed(2)}`;
+      document.getElementById('rec-val-per').textContent = `$${recPer.toFixed(2)}`;
+
+      document.getElementById('recommend-advice-text').textContent =
+        `Con $${netProfit.toFixed(2)} de ganancia neta en este período, asigna $${recInv.toFixed(2)} a reponer inventario y $${recOps.toFixed(2)} a gastos operativos.`;
+
       renderCircularDashboard(grossSales, netProfit, expenses);
     }
 
@@ -1281,6 +1304,46 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       document.getElementById('seg-per').style.width = `${userSettings.pct_personal}%`;
     }
 
+    document.getElementById('btn-open-settings').onclick = () => document.getElementById('modal-settings').classList.remove('hidden');
+    document.getElementById('btn-close-settings').onclick = () => document.getElementById('modal-settings').classList.add('hidden');
+
+    const inputsPct = ['input-pct-inv', 'input-pct-ops', 'input-pct-sav', 'input-pct-per'];
+    inputsPct.forEach(id => {
+      document.getElementById(id).addEventListener('input', () => {
+        const sum = inputsPct.reduce((acc, currId) => acc + (parseInt(document.getElementById(currId).value) || 0), 0);
+        const indicator = document.getElementById('sum-pct-indicator');
+        indicator.textContent = `Suma: ${sum}%`;
+        indicator.style.color = sum === 100 ? 'var(--accent-profit)' : 'var(--accent-expense)';
+      });
+    });
+
+    document.getElementById('btn-save-settings').onclick = async () => {
+      const pInv = parseInt(document.getElementById('input-pct-inv').value) || 0;
+      const pOps = parseInt(document.getElementById('input-pct-ops').value) || 0;
+      const pSav = parseInt(document.getElementById('input-pct-sav').value) || 0;
+      const pPer = parseInt(document.getElementById('input-pct-per').value) || 0;
+
+      if (pInv + pOps + pSav + pPer !== 100) {
+        alert("La suma de los porcentajes debe ser exactamente 100%");
+        return;
+      }
+
+      userSettings = { pct_inventory: pInv, pct_operations: pOps, pct_savings: pSav, pct_personal: pPer };
+
+      const { error } = await supabase.from('business_settings').upsert({
+        business_id: currentBusinessId,
+        ...userSettings,
+        updated_at: new Date()
+      });
+
+      if (error) alert("Error guardando ajustes: " + error.message);
+      else {
+        document.getElementById('modal-settings').classList.add('hidden');
+        applySettingsToUI();
+        calculateFinancialDashboard();
+      }
+    };
+    
     // -------------------------------------------------------------
     // 9. INVENTARIO & REPORTES AUXILIARES
     // -------------------------------------------------------------
