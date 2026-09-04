@@ -712,7 +712,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (modulesInitialized) return;
 
         // Canjear código de invitación pendiente (viene desde la URL del link de confirmación)
-        const urlParams = new URLSearchParams(window.location.search);
+        const urlParams= new URLSearchParams(window.location.search);
         const pendingCode = urlParams.get('invite');
         if (pendingCode) {
           const { data: redeemedBusinessId, error: redeemError } = await supabase.rpc('redeem_invite_code', { input_code: pendingCode });
@@ -1320,20 +1320,34 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       };
     }
 
-    function renderInventoryTable(products) {
-      const tbody = document.getElementById('inventory-table-body');
-      tbody.innerHTML = '';
-      products.forEach(p => {
-        const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td>${p.name}</td>
-          <td class="font-numeric">$${parseFloat(p.sale_price).toFixed(2)}</td>
-          <td>${p.stock}</td>
-          <td><button class="btn-edit" data-id="${p.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Editar</button></td>
-        `;
-        tbody.appendChild(tr);
-      });
-    }
+function renderInventoryTable(products) {
+  const tbody = document.getElementById('inventory-table-body');
+  tbody.innerHTML = '';
+  products.forEach(p => {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${p.name}</td>
+      <td class="font-numeric">$${parseFloat(p.sale_price).toFixed(2)}</td>
+      <td>${p.stock}</td>
+      <td><button class="btn-edit" data-id="${p.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Editar</button></td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.btn-edit').forEach(btn => {
+    btn.onclick = (e) => {
+      const prod = inventorySnapshot.find(p => p.id === e.target.dataset.id);
+      if (!prod) return;
+      document.getElementById('prod-id').value = prod.id;
+      document.getElementById('prod-name').value = prod.name;
+      document.getElementById('prod-cost').value = prod.purchase_price;
+      document.getElementById('prod-price').value = prod.sale_price;
+      document.getElementById('prod-stock').value = prod.stock;
+      document.getElementById('prod-min').value = prod.min_stock;
+      document.getElementById('product-form').classList.remove('hidden');
+    };
+  });
+}
 
     function populateSalesSelect(products) {
       const select = document.getElementById('sale-product-select');
