@@ -257,21 +257,33 @@
     .status-pendiente { background: rgba(255, 90, 95, 0.2); color: var(--accent-expense); }
     .status-parcial { background: rgba(245, 185, 66, 0.2); color: var(--accent-recommend); }
     .status-pagado { background: rgba(0, 217, 163, 0.2); color: var(--accent-profit); }
+
+    /* CONFIGURACIÓN: pestañas */
+    .tabs-nav { display: flex; gap: 0.5rem; overflow-x: auto; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-bottom: 1rem; }
+    .tab-btn { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 0.5rem 0.8rem; font-size: 0.85rem; border-radius: 6px; white-space: nowrap; width: auto; margin: 0; }
+    .tab-btn.active { background: var(--accent-profit); color: #0B1120; font-weight: bold; border-color: var(--accent-profit); }
+    .tab-content.hidden { display: none; }
+    .low-stock-option { background-color: rgba(255, 90, 95, 0.25) !important; color: var(--accent-expense) !important; }
   </style>
 </head>
 <body>
 
 <header id="app-header" class="hidden">
   <div style="display: flex; align-items: center; gap: 0.6rem;">
-    <img src="logo-header.png" alt="Logo" style="width: 32px; height: 32px; border-radius: 6px;">
-    <h2 id="business-display-name" style="font-size: 1.1rem;">Mi Negocio</h2>
-      <span id="user-role-badge" style="font-size: 0.75rem; color: var(--accent-profit);">Admin</span>
-    </div>
+    <img id="header-logo-img" src="logo-header.png" alt="Logo" style="width: 32px; height: 32px; border-radius: 6px; object-fit: cover;">
     <div>
-      <button id="btn-set-password" style="width: auto; padding: 0.35rem 0.8rem; margin: 0 0.25rem 0 0; font-size: 0.85rem; background-color: #1E2942; border: 1px solid var(--border-subtle);">Contraseña</button>
-      <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.35rem 0.8rem; margin: 0; font-size: 0.85rem;">Salir</button>
+      <h2 id="business-display-name" style="font-size: 1.1rem; line-height: 1.1;">Mi Negocio</h2>
+      <div style="display: flex; align-items: center; gap: 0.4rem;">
+        <span id="user-role-badge" style="font-size: 0.75rem; color: var(--accent-profit);">Admin</span>
+        <button id="btn-header-settings" class="nav-admin-only" style="background: none; border: none; padding: 0; margin: 0; width: auto; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--text-muted);" title="Configuración">⚙️</button>
+      </div>
     </div>
-  </header>
+  </div>
+  <div>
+    <button id="btn-set-password" style="width: auto; padding: 0.35rem 0.8rem; margin: 0 0.25rem 0 0; font-size: 0.85rem; background-color: #1E2942; border: 1px solid var(--border-subtle);">Contraseña</button>
+    <button id="btn-logout" class="btn-danger" style="width: auto; padding: 0.35rem 0.8rem; margin: 0; font-size: 0.85rem;">Salir</button>
+  </div>
+</header>
 
   <main class="main-content">
     
@@ -289,6 +301,11 @@
         
         <label>¿Tienes un código de invitación de tu empleador? (Opcional)</label>
         <input type="text" id="auth-invite-code" placeholder="Ej: EMP12345">
+
+        <div id="invite-fullname-container" class="smooth-collapse">
+          <label style="color: var(--accent-profit); font-weight: 600;">Tu nombre completo (Obligatorio)</label>
+          <input type="text" id="auth-employee-name" placeholder="Ej: Juan Pérez">
+        </div>
         
         <button type="submit" class="btn-primary">Iniciar Sesión / Registrarse</button>
       </form>
@@ -386,7 +403,6 @@
         <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-recommend);">
           <div style="display: flex; justify-content: space-between; align-items: center;">
             <h3>Cómo distribuir tu ganancia</h3>
-            <button id="btn-open-settings" style="width: auto; margin:0; padding: 0.2rem 0.6rem; font-size: 0.75rem;">Configurar %</button>
           </div>
           <div class="segmented-bar">
             <div id="seg-inv" class="segment seg-inventory" style="width: 40%;"></div>
@@ -548,14 +564,30 @@
       </form>
     </div>
 
-    <!-- MÓDULO: REPORTES -->
+    <!-- MÓDULO: FACTURAS -->
     <section id="sec-reports" class="view-module hidden">
-      <h2>Reportes Integrados</h2>
+      <h2>Facturas</h2>
       <div class="card" style="margin-top: 0.5rem;">
+        <h3>Emitir Factura</h3>
+        <label>Cliente (Opcional)</label>
+        <select id="invoice-customer-select"><option value="">Cliente General</option></select>
+        <label>Venta a Facturar</label>
+        <select id="invoice-sale-select"></select>
+        <button id="btn-generate-invoice" class="btn-primary">Generar Factura (PDF)</button>
+      </div>
+
+      <div class="card">
         <h3>Tendencia Histórica de Ventas</h3>
         <div style="height: 250px; margin-top: 1rem;"><canvas id="salesChart"></canvas></div>
       </div>
-      <button id="btn-export-pdf" style="margin-top: 0.5rem;">Exportar Historial a PDF</button>
+
+      <div class="card table-responsive">
+        <h3>Historial de Facturas</h3>
+        <table>
+          <thead><tr><th>N° Factura</th><th>Fecha</th><th>Total</th><th>Acción</th></tr></thead>
+          <tbody id="invoices-table-body"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- MÓDULO: GESTIÓN DE EMPLEADOS (SOLO ADMIN) -->
@@ -577,7 +609,7 @@
         <h3>Lista de Empleados Actuales</h3>
         <div class="table-responsive">
           <table>
-            <thead><tr><th>ID Usuario</th><th>Rol</th><th>Agregado</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Cargo</th><th>Rol Permisos</th><th>Agregado</th></tr></thead>
             <tbody id="employees-table-body"></tbody>
           </table>
         </div>
@@ -585,6 +617,114 @@
     </section>
 
   </main>
+
+  <!-- MÓDULO: CONFIGURACIÓN CENTRALIZADA (SOLO ADMIN) -->
+  <section id="sec-settings" class="view-module hidden">
+    <h2>Configuración General</h2>
+    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Administra los parámetros de tu negocio.</p>
+
+    <div class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-cfg-business">Datos Negocio</button>
+      <button class="tab-btn" data-tab="tab-cfg-tax">Moneda e Impuestos</button>
+      <button class="tab-btn" data-tab="tab-cfg-payments">Métodos de Pago</button>
+      <button class="tab-btn" data-tab="tab-cfg-alerts">Inventario/Alertas</button>
+      <button class="tab-btn" data-tab="tab-cfg-profit">Distribución Ganancias</button>
+      <button class="tab-btn" data-tab="tab-cfg-activity">Registro Actividad</button>
+    </div>
+
+    <!-- Datos del Negocio -->
+    <div id="tab-cfg-business" class="tab-content card">
+      <form id="form-cfg-business">
+        <label>Nombre Comercial</label>
+        <input type="text" id="cfg-name" required>
+        <label>Nombre Legal / Razón Social</label>
+        <input type="text" id="cfg-legal-name" placeholder="Ej: Mi Negocio SRL">
+        <label>RNC / Documento Fiscal</label>
+        <input type="text" id="cfg-tax-id" placeholder="Ej: 130-XXXXX-X">
+        <label>Teléfono</label>
+        <input type="tel" id="cfg-phone" placeholder="Ej: 809-555-0000">
+        <label>Dirección</label>
+        <input type="text" id="cfg-address" placeholder="Ej: Av. Principal #12">
+        <label>Logotipo del Negocio</label>
+        <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
+          <img id="cfg-logo-preview" src="logo-header.png" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid var(--border-subtle); object-fit: cover;">
+          <input type="file" id="cfg-logo-file" accept="image/*" style="margin-top: 0;">
+        </div>
+        <button type="submit" class="btn-primary">Guardar Datos del Negocio</button>
+      </form>
+    </div>
+
+    <!-- Moneda e Impuestos -->
+    <div id="tab-cfg-tax" class="tab-content card hidden">
+      <form id="form-cfg-tax">
+        <label>Símbolo de Moneda</label>
+        <select id="cfg-currency-symbol">
+          <option value="$">$ (USD)</option>
+          <option value="RD$">RD$ (DOP)</option>
+          <option value="€">€ (EUR)</option>
+          <option value="MXN$">MXN$ (MXN)</option>
+        </select>
+        <label style="display: flex; align-items: center; gap: 0.5rem; margin-top: 1rem;">
+          <input type="checkbox" id="cfg-tax-enabled" style="width: auto; margin: 0;"> ¿Tu negocio aplica impuestos?
+        </label>
+        <div id="cfg-tax-details" class="smooth-collapse">
+          <label>Porcentaje de Impuesto (%)</label>
+          <input type="number" step="0.01" id="cfg-tax-percentage" placeholder="18">
+          <label>Modo del Impuesto</label>
+          <div class="radio-group">
+            <div class="radio-card radio-tax-mode selected" data-mode="included">Precios ya incluyen impuesto</div>
+            <div class="radio-card radio-tax-mode" data-mode="added">Se suma al vender</div>
+          </div>
+        </div>
+        <button type="submit" class="btn-primary">Guardar Moneda e Impuestos</button>
+      </form>
+    </div>
+
+    <!-- Métodos de Pago -->
+    <div id="tab-cfg-payments" class="tab-content card hidden">
+      <form id="form-cfg-payments">
+        <label style="display: flex; align-items: center; justify-content: space-between;">Efectivo <input type="checkbox" id="cfg-pm-efectivo" style="width: auto; margin: 0;" checked></label>
+        <label style="display: flex; align-items: center; justify-content: space-between;">Transferencia <input type="checkbox" id="cfg-pm-transferencia" style="width: auto; margin: 0;" checked></label>
+        <label style="display: flex; align-items: center; justify-content: space-between;">Tarjeta <input type="checkbox" id="cfg-pm-tarjeta" style="width: auto; margin: 0;" checked></label>
+        <label style="display: flex; align-items: center; justify-content: space-between;">Crédito / Fiao <input type="checkbox" id="cfg-pm-credito" style="width: auto; margin: 0;" checked></label>
+        <button type="submit" class="btn-primary">Guardar Métodos de Pago</button>
+      </form>
+    </div>
+
+    <!-- Inventario y Alertas -->
+    <div id="tab-cfg-alerts" class="tab-content card hidden">
+      <form id="form-cfg-alerts">
+        <label style="display: flex; align-items: center; justify-content: space-between;">
+          Mostrar alerta visual de stock bajo en el Punto de Venta
+          <input type="checkbox" id="cfg-global-low-stock" style="width: auto; margin: 0;" checked>
+        </label>
+        <button type="submit" class="btn-primary">Guardar Ajustes de Inventario</button>
+      </form>
+    </div>
+
+    <!-- Distribución de Ganancias -->
+    <div id="tab-cfg-profit" class="tab-content card hidden">
+      <form id="form-cfg-profit">
+        <p style="font-size: 0.8rem; color: var(--text-muted);">La suma de los 4 campos debe ser exactamente 100%.</p>
+        <label>Reinversión Inventario (%)</label><input type="number" id="cfg-pct-inv" value="40" min="0" max="100">
+        <label>Operación / Empleados (%)</label><input type="number" id="cfg-pct-ops" value="30" min="0" max="100">
+        <label>Fondo de Emergencia (%)</label><input type="number" id="cfg-pct-sav" value="15" min="0" max="100">
+        <label>Uso Personal (%)</label><input type="number" id="cfg-pct-per" value="15" min="0" max="100">
+        <div style="margin-top: 0.5rem; font-weight: bold; font-size: 0.9rem;" id="cfg-sum-pct-indicator">Suma: 100%</div>
+        <button type="submit" class="btn-primary">Guardar Distribución</button>
+      </form>
+    </div>
+
+    <!-- Registro de Actividad -->
+    <div id="tab-cfg-activity" class="tab-content card hidden">
+      <div class="table-responsive">
+        <table>
+          <thead><tr><th>Usuario</th><th>Acción</th><th>Fecha/Hora</th></tr></thead>
+          <tbody id="activity-log-table-body"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
 
   <!-- MODALES AUXILIARES -->
   <div id="modal-password" class="card hidden" style="position: fixed; top: 15%; left: 5%; right: 5%; z-index: 200;">
@@ -596,23 +736,11 @@
     <button id="btn-close-password" style="background: transparent;">Cancelar</button>
   </div>
 
-  <div id="modal-settings" class="card hidden" style="position: fixed; top: 10%; left: 5%; right: 5%; z-index: 200;">
-    <h3>Ajustar distribución de ganancia</h3>
-    <p style="font-size: 0.8rem; color: var(--text-muted);">La suma de los 4 campos debe ser exactamente 100%.</p>
-    <label>Reinversión Inventario (%)</label><input type="number" id="input-pct-inv" value="40" min="0" max="100">
-    <label>Operación / Empleados (%)</label><input type="number" id="input-pct-ops" value="30" min="0" max="100">
-    <label>Fondo de Emergencia (%)</label><input type="number" id="input-pct-sav" value="15" min="0" max="100">
-    <label>Uso Personal (%)</label><input type="number" id="input-pct-per" value="15" min="0" max="100">
-    <div style="margin-top: 0.5rem; font-weight: bold; font-size: 0.9rem;" id="sum-pct-indicator">Suma: 100%</div>
-    <button id="btn-save-settings" class="btn-primary">Guardar Configuración</button>
-    <button id="btn-close-settings" style="background: transparent;">Cancelar</button>
-  </div>
-
   <nav id="app-nav" class="bottom-nav hidden">
     <button class="nav-item active nav-admin-only" data-target="sec-dashboard">Dashboard</button>
     <button class="nav-item" data-target="sec-inventory">Inventario</button>
     <button class="nav-item" data-target="sec-sales">Ventas</button>
-    <button class="nav-item nav-admin-only" data-target="sec-reports">Reportes</button>
+    <button class="nav-item nav-admin-only" data-target="sec-reports">Facturas</button>
     <button class="nav-item" data-target="sec-customers">Clientes</button>
     <button class="nav-item nav-admin-only" id="nav-btn-employees" data-target="sec-employees">Empleados</button>
   </nav>
@@ -689,6 +817,71 @@
         calculateFinancialDashboard();
       });
     });
+
+    // Mostrar campo de nombre completo si hay código de invitación
+    document.getElementById('auth-invite-code').addEventListener('input', (e) => {
+      const container = document.getElementById('invite-fullname-container');
+      if (e.target.value.trim().length > 0) container.classList.add('expanded');
+      else container.classList.remove('expanded');
+    });
+
+    // Botón Entrar con Google (handler que faltaba)
+    document.getElementById('btn-google-auth').onclick = async () => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: window.location.origin + window.location.pathname }
+      });
+      if (error) alert("Error OAuth: " + error.message);
+    };
+
+    // Modal de Contraseña (handlers que faltaban)
+    document.getElementById('btn-set-password').onclick = () => document.getElementById('modal-password').classList.remove('hidden');
+    document.getElementById('btn-close-password').onclick = () => document.getElementById('modal-password').classList.add('hidden');
+    document.getElementById('btn-save-password').onclick = async () => {
+      const newPassword = document.getElementById('input-new-password').value;
+      if (newPassword.length < 6) return alert("La contraseña debe tener al menos 6 caracteres.");
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) alert("Error al guardar contraseña: " + error.message);
+      else {
+        alert("¡Listo! Ya puedes iniciar sesión con tu correo y esta contraseña.");
+        document.getElementById('modal-password').classList.add('hidden');
+        document.getElementById('input-new-password').value = '';
+      }
+    };
+
+    // Ícono de Configuración (header) -> abre la sección de Configuración
+    document.getElementById('btn-header-settings').onclick = () => {
+      modules.forEach(m => m.classList.add('hidden'));
+      navButtons.forEach(b => b.classList.remove('active'));
+      document.getElementById('sec-settings').classList.remove('hidden');
+      loadSettingsIntoForm();
+    };
+
+    // Sub-pestañas de Configuración
+    document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tabs-nav .tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('#sec-settings .tab-content').forEach(c => c.classList.add('hidden'));
+        btn.classList.add('active');
+        document.getElementById(btn.dataset.tab).classList.remove('hidden');
+        if (btn.dataset.tab === 'tab-cfg-activity') loadActivityLog();
+      });
+    });
+
+    // Toggle de detalle de impuesto
+    document.getElementById('cfg-tax-enabled').addEventListener('change', (e) => {
+      const container = document.getElementById('cfg-tax-details');
+      if (e.target.checked) container.classList.add('expanded');
+      else container.classList.remove('expanded');
+    });
+
+    document.querySelectorAll('.radio-tax-mode').forEach(card => {
+      card.addEventListener('click', () => {
+        document.querySelectorAll('.radio-tax-mode').forEach(c => c.classList.remove('selected'));
+        card.classList.add('selected');
+      });
+    });
     
     // -------------------------------------------------------------
     // 4. AUTENTICACIÓN, ROLES & REGISTRO DE EMPLEADOS
@@ -698,12 +891,23 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
   const email = document.getElementById('auth-email').value;
   const password = document.getElementById('auth-password').value;
   const inviteCode = document.getElementById('auth-invite-code').value.trim();
+  const employeeName = document.getElementById('auth-employee-name').value.trim();
+
+  if (inviteCode && !employeeName) {
+    alert("Debes escribir tu nombre completo para registrarte con un código de invitación.");
+    return;
+  }
 
   const { error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error) {
     const baseUrl = window.location.origin + window.location.pathname;
-    const redirectUrl = inviteCode ? `${baseUrl}?invite=${encodeURIComponent(inviteCode)}` : baseUrl;
+    const params = new URLSearchParams();
+    if (inviteCode) {
+      params.set('invite', inviteCode);
+      params.set('empname', employeeName);
+    }
+    const redirectUrl = inviteCode ? `${baseUrl}?${params.toString()}` : baseUrl;
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -727,8 +931,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         // Canjear código de invitación pendiente (viene desde la URL del link de confirmación)
         const urlParams= new URLSearchParams(window.location.search);
         const pendingCode = urlParams.get('invite');
+        const pendingName = urlParams.get('empname') || '';
         if (pendingCode) {
-          const { data: redeemedBusinessId, error: redeemError } = await supabase.rpc('redeem_invite_code', { input_code: pendingCode });
+          const { data: redeemedBusinessId, error: redeemError } = await supabase.rpc('redeem_invite_code', { input_code: pendingCode, input_employee_name: pendingName });
           window.history.replaceState({}, document.title, window.location.pathname);
 
           if (redeemError) {
@@ -883,7 +1088,16 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         initReports();
         initCustomersAndCredits();
         initEmployeeManagement();
+        initInvoices();
+        applyLogoToHeader();
         modulesInitialized = true;
+      }
+    }
+
+    function applyLogoToHeader() {
+      if (currentBusinessData?.logo_url) {
+        document.getElementById('header-logo-img').src = currentBusinessData.logo_url;
+        document.getElementById('cfg-logo-preview').src = currentBusinessData.logo_url;
       }
     }
 
@@ -1113,6 +1327,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
           cart = [];
           renderCart();
           await loadCredits();
+          await logActivity(`Registró una venta por $${totalAmount.toFixed(2)} (${paymentMethod})`);
           alert("Venta completada con éxito.");
         } catch (err) {
           alert("Error en la venta: " + err.message);
@@ -1135,6 +1350,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         else {
           document.getElementById('lbl-generated-code').textContent = code;
           document.getElementById('invite-code-display').classList.remove('hidden');
+          await logActivity(`Generó un código de invitación para empleado`);
         }
       };
 
@@ -1159,11 +1375,19 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         data.forEach(m => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${m.user_id}</td>
+            <td>${m.employee_name || 'Sin nombre'}</td>
+            <td><input type="text" class="input-role-title" data-id="${m.id}" value="${m.role_title || ''}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
             <td><span class="badge-status status-pagado">Empleado</span></td>
             <td>${new Date(m.created_at).toLocaleDateString()}</td>
           `;
           tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.input-role-title').forEach(input => {
+          input.addEventListener('change', async (e) => {
+            await supabase.from('business_members').update({ role_title: e.target.value }).eq('id', e.target.dataset.id);
+            await logActivity(`Actualizó el cargo de un empleado a "${e.target.value}"`);
+          });
         });
       }
     }
@@ -1307,46 +1531,314 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       document.getElementById('seg-per').style.width = `${userSettings.pct_personal}%`;
     }
 
-    document.getElementById('btn-open-settings').onclick = () => document.getElementById('modal-settings').classList.remove('hidden');
-    document.getElementById('btn-close-settings').onclick = () => document.getElementById('modal-settings').classList.add('hidden');
+    // -------------------------------------------------------------
+    // 8b. REGISTRO DE ACTIVIDAD (BITÁCORA)
+    // -------------------------------------------------------------
+    async function logActivity(action) {
+      if (!currentBusinessId) return;
+      const { data: { user } } = await supabase.auth.getUser();
+      await supabase.from('activity_log').insert([{
+        business_id: currentBusinessId,
+        user_id: user ? user.id : null,
+        action: action
+      }]);
+    }
 
-    const inputsPct = ['input-pct-inv', 'input-pct-ops', 'input-pct-sav', 'input-pct-per'];
-    inputsPct.forEach(id => {
-      document.getElementById(id).addEventListener('input', () => {
-        const sum = inputsPct.reduce((acc, currId) => acc + (parseInt(document.getElementById(currId).value) || 0), 0);
-        const indicator = document.getElementById('sum-pct-indicator');
-        indicator.textContent = `Suma: ${sum}%`;
-        indicator.style.color = sum === 100 ? 'var(--accent-profit)' : 'var(--accent-expense)';
-      });
+    async function loadActivityLog() {
+      const { data } = await supabase.from('activity_log').select('*').eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(30);
+      const tbody = document.getElementById('activity-log-table-body');
+      tbody.innerHTML = '';
+      if (data) {
+        data.forEach(log => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `<td>${log.user_id ? log.user_id.substring(0,8) : 'Sistema'}</td><td>${log.action}</td><td>${new Date(log.created_at).toLocaleString()}</td>`;
+          tbody.appendChild(tr);
+        });
+      }
+    }
+
+    // -------------------------------------------------------------
+    // 8c. CONFIGURACIÓN CENTRALIZADA (ADMIN)
+    // -------------------------------------------------------------
+    function loadSettingsIntoForm() {
+      const b = currentBusinessData || {};
+      document.getElementById('cfg-name').value = b.name || '';
+      document.getElementById('cfg-legal-name').value = b.legal_name || '';
+      document.getElementById('cfg-tax-id').value = b.tax_id || '';
+      document.getElementById('cfg-phone').value = b.phone || '';
+      document.getElementById('cfg-address').value = b.address || '';
+      document.getElementById('cfg-currency-symbol').value = b.currency_symbol || '$';
+
+      const taxEnabled = b.tax_enabled || false;
+      document.getElementById('cfg-tax-enabled').checked = taxEnabled;
+      document.getElementById('cfg-tax-details').classList.toggle('expanded', taxEnabled);
+      document.getElementById('cfg-tax-percentage').value = b.tax_percentage || 0;
+
+      document.querySelectorAll('.radio-tax-mode').forEach(c => c.classList.remove('selected'));
+      const modeSel = b.tax_included_in_price ? 'included' : 'added';
+      document.querySelector(`.radio-tax-mode[data-mode="${modeSel}"]`)?.classList.add('selected');
+
+      const pm = b.payment_methods || { efectivo: true, transferencia: true, tarjeta: true, credito: true };
+      document.getElementById('cfg-pm-efectivo').checked = pm.efectivo !== false;
+      document.getElementById('cfg-pm-transferencia').checked = pm.transferencia !== false;
+      document.getElementById('cfg-pm-tarjeta').checked = pm.tarjeta !== false;
+      document.getElementById('cfg-pm-credito').checked = pm.credito !== false;
+
+      document.getElementById('cfg-global-low-stock').checked = b.global_low_stock_alert !== false;
+
+      document.getElementById('cfg-pct-inv').value = userSettings.pct_inventory;
+      document.getElementById('cfg-pct-ops').value = userSettings.pct_operations;
+      document.getElementById('cfg-pct-sav').value = userSettings.pct_savings;
+      document.getElementById('cfg-pct-per').value = userSettings.pct_personal;
+
+      if (b.logo_url) document.getElementById('cfg-logo-preview').src = b.logo_url;
+    }
+
+    document.getElementById('form-cfg-business').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      let logoUrl = currentBusinessData?.logo_url || null;
+
+      const fileInput = document.getElementById('cfg-logo-file');
+      if (fileInput.files.length > 0) {
+        const file = fileInput.files[0];
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${currentBusinessId}/logo.${fileExt}`;
+        const { error: uploadErr } = await supabase.storage.from('business-logos').upload(filePath, file, { upsert: true });
+        if (uploadErr) {
+          alert("Error subiendo el logo: " + uploadErr.message);
+        } else {
+          const { data: pub } = supabase.storage.from('business-logos').getPublicUrl(filePath);
+          logoUrl = pub.publicUrl;
+        }
+      }
+
+      const updates = {
+        name: document.getElementById('cfg-name').value,
+        legal_name: document.getElementById('cfg-legal-name').value,
+        tax_id: document.getElementById('cfg-tax-id').value,
+        phone: document.getElementById('cfg-phone').value,
+        address: document.getElementById('cfg-address').value,
+        logo_url: logoUrl,
+        updated_at: new Date()
+      };
+
+      const { error } = await supabase.from('businesses').update(updates).eq('id', currentBusinessId);
+      if (error) return alert("Error: " + error.message);
+
+      currentBusinessData = { ...currentBusinessData, ...updates };
+      document.getElementById('business-display-name').textContent = updates.name;
+      applyLogoToHeader();
+      await logActivity('Actualizó los datos del negocio');
+      alert("Datos del negocio guardados.");
     });
 
-    document.getElementById('btn-save-settings').onclick = async () => {
-      const pInv = parseInt(document.getElementById('input-pct-inv').value) || 0;
-      const pOps = parseInt(document.getElementById('input-pct-ops').value) || 0;
-      const pSav = parseInt(document.getElementById('input-pct-sav').value) || 0;
-      const pPer = parseInt(document.getElementById('input-pct-per').value) || 0;
+    document.getElementById('form-cfg-tax').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const isIncluded = document.querySelector('.radio-tax-mode.selected')?.dataset.mode === 'included';
+      const updates = {
+        currency_symbol: document.getElementById('cfg-currency-symbol').value,
+        tax_enabled: document.getElementById('cfg-tax-enabled').checked,
+        tax_percentage: parseFloat(document.getElementById('cfg-tax-percentage').value) || 0,
+        tax_included_in_price: isIncluded,
+        updated_at: new Date()
+      };
+      const { error } = await supabase.from('businesses').update(updates).eq('id', currentBusinessId);
+      if (error) return alert("Error: " + error.message);
+      currentBusinessData = { ...currentBusinessData, ...updates };
+      await logActivity('Actualizó moneda e impuestos');
+      alert("Configuración fiscal guardada.");
+    });
 
-      if (pInv + pOps + pSav + pPer !== 100) {
-        alert("La suma de los porcentajes debe ser exactamente 100%");
-        return;
-      }
+    document.getElementById('form-cfg-payments').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payment_methods = {
+        efectivo: document.getElementById('cfg-pm-efectivo').checked,
+        transferencia: document.getElementById('cfg-pm-transferencia').checked,
+        tarjeta: document.getElementById('cfg-pm-tarjeta').checked,
+        credito: document.getElementById('cfg-pm-credito').checked
+      };
+      const { error } = await supabase.from('businesses').update({ payment_methods, updated_at: new Date() }).eq('id', currentBusinessId);
+      if (error) return alert("Error: " + error.message);
+      currentBusinessData.payment_methods = payment_methods;
+      await logActivity('Actualizó métodos de pago');
+      alert("Métodos de pago guardados.");
+    });
+
+    document.getElementById('form-cfg-alerts').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const val = document.getElementById('cfg-global-low-stock').checked;
+      const { error } = await supabase.from('businesses').update({ global_low_stock_alert: val, updated_at: new Date() }).eq('id', currentBusinessId);
+      if (error) return alert("Error: " + error.message);
+      currentBusinessData.global_low_stock_alert = val;
+      await logActivity('Actualizó alerta de stock bajo');
+      alert("Ajustes de inventario guardados.");
+    });
+
+    document.getElementById('form-cfg-profit').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const pInv = parseInt(document.getElementById('cfg-pct-inv').value) || 0;
+      const pOps = parseInt(document.getElementById('cfg-pct-ops').value) || 0;
+      const pSav = parseInt(document.getElementById('cfg-pct-sav').value) || 0;
+      const pPer = parseInt(document.getElementById('cfg-pct-per').value) || 0;
+
+      if (pInv + pOps + pSav + pPer !== 100) return alert("La suma de los porcentajes debe ser exactamente 100%");
 
       userSettings = { pct_inventory: pInv, pct_operations: pOps, pct_savings: pSav, pct_personal: pPer };
-
       const { error } = await supabase.from('business_settings').upsert({
-        business_id: currentBusinessId,
-        ...userSettings,
-        updated_at: new Date()
+        business_id: currentBusinessId, ...userSettings, updated_at: new Date()
+      });
+      if (error) return alert("Error: " + error.message);
+
+      await logActivity('Actualizó la distribución de ganancias');
+      calculateFinancialDashboard();
+      alert("Distribución de ganancias guardada.");
+    });
+
+    // -------------------------------------------------------------
+    // 8d. MÓDULO DE FACTURAS
+    // -------------------------------------------------------------
+    function initInvoices() {
+      populateInvoiceSelects();
+
+      document.getElementById('btn-generate-invoice').onclick = async () => {
+        const saleId = document.getElementById('invoice-sale-select').value;
+        const customerId = document.getElementById('invoice-customer-select').value || null;
+        const sale = salesHistory.find(s => s.id === saleId);
+        if (!sale) return alert("Selecciona una venta para facturar.");
+
+        const taxEnabled = currentBusinessData?.tax_enabled;
+        const taxRate = taxEnabled ? (currentBusinessData.tax_percentage / 100) : 0;
+        let subtotal = sale.total;
+        let taxAmount = 0;
+
+        if (taxEnabled) {
+          if (currentBusinessData.tax_included_in_price) {
+            subtotal = sale.total / (1 + taxRate);
+            taxAmount = sale.total - subtotal;
+          } else {
+            taxAmount = sale.total * taxRate;
+          }
+        }
+        const total = subtotal + taxAmount;
+        const invoiceNumber = 'FAC-' + Math.floor(100000 + Math.random() * 900000);
+
+        const { data: invData, error } = await supabase.from('invoices').insert([{
+          business_id: currentBusinessId,
+          sale_id: saleId,
+          customer_id: customerId,
+          invoice_number: invoiceNumber,
+          subtotal: subtotal,
+          tax_amount: taxAmount,
+          total: total
+        }]).select().single();
+
+        if (error) return alert("Error al generar factura: " + error.message);
+
+        await logActivity(`Generó la factura ${invoiceNumber}`);
+        generateInvoicePDF(invData, sale);
+        await loadInvoicesList();
+      };
+    }
+
+    function populateInvoiceSelects() {
+      const custSelect = document.getElementById('invoice-customer-select');
+      custSelect.innerHTML = '<option value="">Cliente General</option>';
+      customersSnapshot.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c.id; opt.textContent = c.name;
+        custSelect.appendChild(opt);
       });
 
-      if (error) alert("Error guardando ajustes: " + error.message);
-      else {
-        document.getElementById('modal-settings').classList.add('hidden');
-        applySettingsToUI();
-        calculateFinancialDashboard();
+      const saleSelect = document.getElementById('invoice-sale-select');
+      saleSelect.innerHTML = '';
+      salesHistory.slice(0, 30).forEach(s => {
+        const opt = document.createElement('option');
+        opt.value = s.id;
+        opt.textContent = `${new Date(s.created_at).toLocaleString()} - $${parseFloat(s.total).toFixed(2)}`;
+        saleSelect.appendChild(opt);
+      });
+
+      loadInvoicesList();
+    }
+
+    async function loadInvoicesList() {
+      const { data } = await supabase.from('invoices').select('*').eq('business_id', currentBusinessId).order('created_at', { ascending: false });
+      const tbody = document.getElementById('invoices-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      if (data) {
+        data.forEach(inv => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${inv.invoice_number}</td>
+            <td>${new Date(inv.created_at).toLocaleDateString()}</td>
+            <td class="font-numeric">$${parseFloat(inv.total).toFixed(2)}</td>
+            <td><button class="btn-re-pdf" data-id="${inv.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">PDF</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('.btn-re-pdf').forEach(btn => {
+          btn.onclick = (e) => {
+            const inv = data.find(i => i.id === e.target.dataset.id);
+            if (inv) generateInvoicePDF(inv, null);
+          };
+        });
       }
-    };
-    
+    }
+
+    function generateInvoicePDF(invoice, sale) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const b = currentBusinessData || {};
+      const curr = b.currency_symbol || '$';
+
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.text(b.name || "Mi Negocio", 14, 20);
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      let y = 26;
+      if (b.legal_name) { doc.text(b.legal_name, 14, y); y += 5; }
+      if (b.tax_id) { doc.text(`RNC/Tax ID: ${b.tax_id}`, 14, y); y += 5; }
+      if (b.address) { doc.text(b.address, 14, y); y += 5; }
+      if (b.phone) { doc.text(`Tel: ${b.phone}`, 14, y); y += 5; }
+
+      doc.setFont("helvetica", "bold");
+      doc.text(`FACTURA N°: ${invoice.invoice_number}`, 140, 20);
+      doc.setFont("helvetica", "normal");
+      doc.text(`Fecha: ${new Date(invoice.created_at).toLocaleDateString()}`, 140, 26);
+
+      y = Math.max(y, 36);
+      doc.line(14, y, 196, y);
+      y += 8;
+
+      if (sale && sale.items) {
+        doc.setFont("helvetica", "bold");
+        doc.text("Producto", 14, y);
+        doc.text("Cant", 120, y);
+        doc.text("Total", 170, y);
+        y += 5;
+        doc.setFont("helvetica", "normal");
+        sale.items.forEach(item => {
+          doc.text(String(item.name).substring(0, 40), 14, y);
+          doc.text(String(item.qty), 120, y);
+          doc.text(`${curr}${item.subtotal.toFixed(2)}`, 170, y);
+          y += 5;
+        });
+        y += 4;
+        doc.line(14, y, 196, y);
+        y += 8;
+      }
+
+      doc.text(`Subtotal: ${curr}${parseFloat(invoice.subtotal).toFixed(2)}`, 140, y); y += 6;
+      doc.text(`Impuesto: ${curr}${parseFloat(invoice.tax_amount).toFixed(2)}`, 140, y); y += 6;
+      doc.setFont("helvetica", "bold");
+      doc.text(`TOTAL: ${curr}${parseFloat(invoice.total).toFixed(2)}`, 140, y);
+
+      doc.save(`${invoice.invoice_number}.pdf`);
+    }
+
     // -------------------------------------------------------------
     // 9. INVENTARIO & REPORTES AUXILIARES
     // -------------------------------------------------------------
@@ -1381,6 +1873,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (id) await supabase.from('products').update(payload).eq('id', id);
         else await supabase.from('products').insert([payload]);
 
+        await logActivity(id ? `Editó el producto "${payload.name}"` : `Creó el producto "${payload.name}"`);
         form.classList.add('hidden');
         await loadProducts();
       };
@@ -1418,10 +1911,13 @@ function renderInventoryTable(products) {
     function populateSalesSelect(products) {
       const select = document.getElementById('sale-product-select');
       select.innerHTML = '';
+      const alertsOn = currentBusinessData?.global_low_stock_alert !== false;
       products.forEach(p => {
         const opt = document.createElement('option');
         opt.value = p.id;
-        opt.textContent = `${p.name} ($${parseFloat(p.sale_price).toFixed(2)} | Stock: ${p.stock})`;
+        const isLow = alertsOn && p.stock <= p.min_stock;
+        if (isLow) opt.className = 'low-stock-option';
+        opt.textContent = `${p.name} ($${parseFloat(p.sale_price).toFixed(2)} | Stock: ${p.stock})${isLow ? ' ⚠️ STOCK BAJO' : ''}`;
         select.appendChild(opt);
       });
     }
