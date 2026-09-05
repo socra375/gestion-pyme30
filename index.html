@@ -22,6 +22,8 @@
   }">
   <meta name="theme-color" content="#141B2E">
 
+<link rel="icon" type="image/png" href="favicon-512.png">
+
   <!-- Supabase JS v2 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <!-- Chart.js y jsPDF -->
@@ -259,9 +261,10 @@
 </head>
 <body>
 
-  <header id="app-header" class="hidden">
-    <div>
-      <h2 id="business-display-name" style="font-size: 1.1rem;">Mi Negocio</h2>
+<header id="app-header" class="hidden">
+  <div style="display: flex; align-items: center; gap: 0.6rem;">
+    <img src="logo-header.png" alt="Logo" style="width: 32px; height: 32px; border-radius: 6px;">
+    <h2 id="business-display-name" style="font-size: 1.1rem;">Mi Negocio</h2>
       <span id="user-role-badge" style="font-size: 0.75rem; color: var(--accent-profit);">Admin</span>
     </div>
     <div>
