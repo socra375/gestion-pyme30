@@ -275,7 +275,7 @@
       <h2 id="business-display-name" style="font-size: 1.1rem; line-height: 1.1;">Mi Negocio</h2>
       <div style="display: flex; align-items: center; gap: 0.4rem;">
         <span id="user-role-badge" style="font-size: 0.75rem; color: var(--accent-profit);">Admin</span>
-        <button id="btn-header-settings" class="nav-admin-only" style="background: none; border: none; padding: 0; margin: 0; width: auto; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--text-muted);" title="Configuración">⚙️</button>
+        <button id="btn-header-settings" style="background: none; border: none; padding: 0; margin: 0; width: auto; cursor: pointer; font-size: 1rem; line-height: 1; color: var(--text-muted);" title="Menú">⚙️</button>
       </div>
     </div>
   </div>
@@ -620,8 +620,19 @@
 
   <!-- MÓDULO: CONFIGURACIÓN CENTRALIZADA (SOLO ADMIN) -->
   <section id="sec-settings" class="view-module hidden">
-    <h2>Configuración General</h2>
-    <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Administra los parámetros de tu negocio.</p>
+    <h2 id="settings-title">Menú</h2>
+    <p id="settings-subtitle" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Accede a tus módulos.</p>
+
+    <div class="card">
+      <div class="recommend-grid" style="grid-template-columns: 1fr 1fr;">
+        <button class="menu-link-btn" data-target="sec-sales" style="margin:0;">🧾 Ventas</button>
+        <button class="menu-link-btn" data-target="sec-inventory" style="margin:0;">📦 Inventario</button>
+        <button class="menu-link-btn" data-target="sec-customers" style="margin:0;">👥 Clientes</button>
+        <button class="menu-link-btn nav-admin-only" data-target="sec-reports" style="margin:0;">🧮 Facturas</button>
+      </div>
+    </div>
+
+    <div id="admin-config-section" class="nav-admin-only">
 
     <div class="tabs-nav">
       <button class="tab-btn active" data-tab="tab-cfg-business">Datos Negocio</button>
@@ -724,6 +735,7 @@
         </table>
       </div>
     </div>
+    </div><!-- cierre admin-config-section -->
   </section>
 
   <!-- MODALES AUXILIARES -->
@@ -738,10 +750,6 @@
 
   <nav id="app-nav" class="bottom-nav hidden">
     <button class="nav-item active nav-admin-only" data-target="sec-dashboard">Dashboard</button>
-    <button class="nav-item" data-target="sec-inventory">Inventario</button>
-    <button class="nav-item" data-target="sec-sales">Ventas</button>
-    <button class="nav-item nav-admin-only" data-target="sec-reports">Facturas</button>
-    <button class="nav-item" data-target="sec-customers">Clientes</button>
     <button class="nav-item nav-admin-only" id="nav-btn-employees" data-target="sec-employees">Empleados</button>
   </nav>
 
@@ -855,8 +863,25 @@
       modules.forEach(m => m.classList.add('hidden'));
       navButtons.forEach(b => b.classList.remove('active'));
       document.getElementById('sec-settings').classList.remove('hidden');
-      loadSettingsIntoForm();
+
+      if (currentUserRole === 'admin') {
+        document.getElementById('settings-title').textContent = 'Configuración General';
+        document.getElementById('settings-subtitle').textContent = 'Administra los parámetros de tu negocio y accede a los módulos.';
+        loadSettingsIntoForm();
+      } else {
+        document.getElementById('settings-title').textContent = 'Menú';
+        document.getElementById('settings-subtitle').textContent = 'Accede a tus módulos de trabajo.';
+      }
     };
+
+    // Accesos rápidos dentro del Menú/Configuración (Ventas, Inventario, Clientes, Facturas)
+    document.querySelectorAll('.menu-link-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        modules.forEach(m => m.classList.add('hidden'));
+        navButtons.forEach(b => b.classList.remove('active'));
+        document.getElementById(btn.dataset.target).classList.remove('hidden');
+      });
+    });
 
     // Sub-pestañas de Configuración
     document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
@@ -1063,16 +1088,17 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     function setupRoleInterface() {
       document.getElementById('business-display-name').textContent = currentBusinessData?.name || 'Mi Negocio';
       document.getElementById('user-role-badge').textContent = currentUserRole === 'admin' ? 'Admin' : 'Empleado';
-      
+
       document.getElementById('app-header').classList.remove('hidden');
-      document.getElementById('app-nav').classList.remove('hidden');
+      modules.forEach(m => m.classList.add('hidden'));
 
       if (currentUserRole === 'employee') {
         document.querySelectorAll('.nav-admin-only').forEach(el => el.classList.add('hidden'));
+        document.getElementById('app-nav').classList.add('hidden'); // sin botones admin visibles
         document.getElementById('sec-sales').classList.remove('hidden');
-        document.querySelector('[data-target="sec-sales"]').classList.add('active');
       } else {
         document.querySelectorAll('.nav-admin-only').forEach(el => el.classList.remove('hidden'));
+        document.getElementById('app-nav').classList.remove('hidden');
         if (currentBusinessData?.business_type !== 'group') {
           document.getElementById('nav-btn-employees').classList.add('hidden');
         }
