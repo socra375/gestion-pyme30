@@ -1321,16 +1321,21 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             const currentProd = inventorySnapshot.find(p => p.id === item.id);
             if (currentProd) {
               await supabase.from('products').update({ stock: currentProd.stock - item.qty }).eq('id', item.id);
+              populateSalesSelect(inventorySnapshot);
             }
           }
 
-          cart = [];
-          renderCart();
-          await loadCredits();
-          await logActivity(`Registró una venta por $${totalAmount.toFixed(2)} (${paymentMethod})`);
-          alert("Venta completada con éxito.");
-        } catch (err) {
-          alert("Error en la venta: " + err.message);
+cart = [];
+renderCart();
+await loadCredits();
+await logActivity(`Registró una venta por $${totalAmount.toFixed(2)} (${paymentMethod})`);
+
+// 🔧 FIX: refrescar historial de ventas y el selector de facturas
+salesHistory.unshift(saleData);
+calculateFinancialDashboard();
+populateInvoiceSelects();
+
+alert("Venta completada con éxito.");
         }
       };
     }
