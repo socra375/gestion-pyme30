@@ -1588,7 +1588,7 @@ if (invErr) {
   alert(`Venta completada con éxito, pero hubo un error generando la factura: ${invErr.message}`);
 } else {
   await logActivity(`Generó automáticamente la factura ${invData.invoice_number}`);
-  openInvoiceModal(invData, saleData);
+  openInvoiceModal(invData);
 }
         } catch (err) {
           alert("Error al procesar la venta: " + err.message);
@@ -1987,6 +1987,7 @@ if (invErr) {
         sale_id: sale.id,
         customer_id: customerId || null,
         invoice_number: invoiceNumber,
+        items: sale.items || [],
         subtotal: subtotal,
         tax_amount: taxAmount,
         total: total
@@ -2010,15 +2011,9 @@ if (invErr) {
           tbody.appendChild(tr);
         });
         tbody.querySelectorAll('.btn-view-invoice').forEach(btn => {
-          btn.onclick = async (e) => {
+          btn.onclick = (e) => {
             const inv = data.find(i => i.id === e.target.dataset.id);
-            if (!inv) return;
-            let sale = salesHistory.find(s => s.id === inv.sale_id);
-            if (!sale && inv.sale_id) {
-              const { data: saleRow } = await supabase.from('sales').select('*').eq('id', inv.sale_id).single();
-              sale = saleRow;
-            }
-            openInvoiceModal(inv, sale);
+            if (inv) openInvoiceModal(inv);
           };
         });
       }
@@ -2069,7 +2064,7 @@ if (invErr) {
       document.getElementById('inv-total').textContent = `${curr}${total.toFixed(2)}`;
     }
 
-    function openInvoiceModal(invoice, sale) {
+    function openInvoiceModal(invoice) {
       const b = currentBusinessData || {};
 
       document.getElementById('inv-biz-name').textContent = b.name || 'Mi Negocio';
@@ -2089,8 +2084,8 @@ if (invErr) {
       document.getElementById('inv-customer-phone').textContent = customer?.phone || '';
 
       document.getElementById('inv-items-body').innerHTML = '';
-      if (sale?.items?.length) {
-        sale.items.forEach(item => addInvoiceItemRow({ name: item.name, qty: item.qty, price: item.price }));
+      if (invoice.items?.length) {
+        invoice.items.forEach(item => addInvoiceItemRow({ name: item.name, qty: item.qty, price: item.price }));
       } else {
         addInvoiceItemRow({ name: 'Producto/Servicio', qty: 1, price: invoice.subtotal });
       }
