@@ -1016,13 +1016,78 @@
       }
     };
 
+    // Muestra una sección de módulo (Dashboard, Ventas, Inventario, etc.), ocultando el resto
+    function showModuleSection(id) {
+      const target = document.getElementById(id);
+      if (!target) return;
+      modules.forEach(m => m.classList.add('hidden'));
+      navButtons.forEach(b => b.classList.remove('active'));
+      target.classList.remove('hidden');
+      const navBtn = document.querySelector(`.nav-item[data-target="${id}"]`);
+      if (navBtn) navBtn.classList.add('active');
+    }
+
     // Accesos rápidos dentro del Menú/Configuración (Ventas, Inventario, Clientes, Facturas)
     document.querySelectorAll('.menu-link-btn').forEach(btn => {
-      btn.addEventListener('click', () => {
-        modules.forEach(m => m.classList.add('hidden'));
-        navButtons.forEach(b => b.classList.remove('active'));
-        document.getElementById(btn.dataset.target).classList.remove('hidden');
-      });
+      btn.addEventListener('click', () => showModuleSection(btn.dataset.target));
+    });
+
+    // Atajos de teclado: Ctrl+G Configuración, Shift+I Inventario, Shift+V Ventas,
+    // Shift+F Facturas (solo admin), C luego E Clientes.
+    let pendingChordKey = null;
+    let pendingChordTime = 0;
+
+    document.addEventListener('keydown', (e) => {
+      const activeEl = document.activeElement;
+      const tag = activeEl?.tagName;
+      const isEditableField = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || activeEl?.isContentEditable;
+      if (isEditableField) { pendingChordKey = null; return; }
+      if (document.getElementById('app-header').classList.contains('hidden')) return; // aún sin iniciar sesión
+
+      const key = e.key.toLowerCase();
+
+      if (e.ctrlKey && !e.shiftKey && !e.altKey && key === 'g') {
+        e.preventDefault();
+        document.getElementById('btn-header-settings').click();
+        pendingChordKey = null;
+        return;
+      }
+
+      if (e.shiftKey && !e.ctrlKey && !e.altKey && key === 'i') {
+        e.preventDefault();
+        showModuleSection('sec-inventory');
+        pendingChordKey = null;
+        return;
+      }
+
+      if (e.shiftKey && !e.ctrlKey && !e.altKey && key === 'v') {
+        e.preventDefault();
+        showModuleSection('sec-sales');
+        pendingChordKey = null;
+        return;
+      }
+
+      if (e.shiftKey && !e.ctrlKey && !e.altKey && key === 'f') {
+        e.preventDefault();
+        if (currentUserRole === 'admin') showModuleSection('sec-reports');
+        pendingChordKey = null;
+        return;
+      }
+
+      if (!e.ctrlKey && !e.shiftKey && !e.altKey && key === 'e' && pendingChordKey === 'c' && (Date.now() - pendingChordTime) < 800) {
+        e.preventDefault();
+        showModuleSection('sec-customers');
+        pendingChordKey = null;
+        return;
+      }
+
+      if (!e.ctrlKey && !e.shiftKey && !e.altKey && key === 'c') {
+        pendingChordKey = 'c';
+        pendingChordTime = Date.now();
+        return;
+      }
+
+      pendingChordKey = null;
     });
 
     // Cerrar el panel lateral de Menú/Configuración (botón ✕ o clic fuera)
