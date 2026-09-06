@@ -258,6 +258,46 @@
     .status-parcial { background: rgba(245, 185, 66, 0.2); color: var(--accent-recommend); }
     .status-pagado { background: rgba(0, 217, 163, 0.2); color: var(--accent-profit); }
 
+    /* MENÚ / CONFIGURACIÓN: panel lateral (drawer) */
+    #settings-backdrop {
+      position: fixed; inset: 0;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 290;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s ease;
+    }
+    html:has(#sec-settings.view-module:not(.hidden)) #settings-backdrop {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    #sec-settings.view-module {
+      position: fixed;
+      top: 0; right: 0;
+      width: 88%; max-width: 380px;
+      height: 100%;
+      margin: 0;
+      background-color: var(--bg-card);
+      border-left: 1px solid var(--border-subtle);
+      box-shadow: -12px 0 32px rgba(0, 0, 0, 0.45);
+      z-index: 300;
+      overflow-y: auto;
+      padding: 1.25rem;
+      transform: translateX(100%);
+      transition: transform 0.28s ease;
+    }
+    #sec-settings.view-module.hidden {
+      display: block !important;
+      transform: translateX(100%);
+      pointer-events: none;
+    }
+    .settings-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 0.75rem; }
+    #btn-close-settings {
+      background: none; border: none; width: auto; padding: 0.25rem 0.5rem; margin: 0;
+      font-size: 1.3rem; line-height: 1; color: var(--text-muted); cursor: pointer;
+    }
+
     /* CONFIGURACIÓN: pestañas */
     .tabs-nav { display: flex; gap: 0.5rem; overflow-x: auto; border-bottom: 1px solid var(--border-subtle); padding-bottom: 0.5rem; margin-bottom: 1rem; }
     .tab-btn { background: transparent; border: 1px solid var(--border-subtle); color: var(--text-muted); padding: 0.5rem 0.8rem; font-size: 0.85rem; border-radius: 6px; white-space: nowrap; width: auto; margin: 0; }
@@ -567,14 +607,7 @@
     <!-- MÓDULO: FACTURAS -->
     <section id="sec-reports" class="view-module hidden">
       <h2>Facturas</h2>
-      <div class="card" style="margin-top: 0.5rem;">
-        <h3>Emitir Factura</h3>
-        <label>Cliente (Opcional)</label>
-        <select id="invoice-customer-select"><option value="">Cliente General</option></select>
-        <label>Venta a Facturar</label>
-        <select id="invoice-sale-select"></select>
-        <button id="btn-generate-invoice" class="btn-primary">Generar Factura (PDF)</button>
-      </div>
+      <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0.5rem 0 1rem;">Cada venta genera automáticamente su factura correspondiente, sin importar el método de pago.</p>
 
       <div class="card">
         <h3>Tendencia Histórica de Ventas</h3>
@@ -619,9 +652,15 @@
   </main>
 
   <!-- MÓDULO: CONFIGURACIÓN CENTRALIZADA (SOLO ADMIN) -->
+  <div id="settings-backdrop"></div>
   <section id="sec-settings" class="view-module hidden">
-    <h2 id="settings-title">Menú</h2>
-    <p id="settings-subtitle" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Accede a tus módulos.</p>
+    <div class="settings-header">
+      <div>
+        <h2 id="settings-title">Menú</h2>
+        <p id="settings-subtitle" style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 1rem;">Accede a tus módulos.</p>
+      </div>
+      <button id="btn-close-settings" title="Cerrar">✕</button>
+    </div>
 
     <div class="card">
       <div class="recommend-grid" style="grid-template-columns: 1fr 1fr;">
@@ -882,6 +921,19 @@
         document.getElementById(btn.dataset.target).classList.remove('hidden');
       });
     });
+
+    // Cerrar el panel lateral de Menú/Configuración (botón ✕ o clic fuera)
+    function closeSettingsPanel() {
+      document.getElementById('sec-settings').classList.add('hidden');
+      modules.forEach(m => m.classList.add('hidden'));
+      navButtons.forEach(b => b.classList.remove('active'));
+      const fallbackId = currentUserRole === 'employee' ? 'sec-sales' : 'sec-dashboard';
+      document.getElementById(fallbackId).classList.remove('hidden');
+      const fallbackNav = document.querySelector(`[data-target="${fallbackId}"]`);
+      if (fallbackNav) fallbackNav.classList.add('active');
+    }
+    document.getElementById('btn-close-settings').onclick = closeSettingsPanel;
+    document.getElementById('settings-backdrop').onclick = closeSettingsPanel;
 
     // Sub-pestañas de Configuración
     document.querySelectorAll('.tabs-nav .tab-btn').forEach(btn => {
@@ -1351,6 +1403,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             }
           }
 
+          // Generar automáticamente la factura de la venta, sin importar el método de pago
+          const { data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId);
+
 cart = [];
 renderCart();
 await loadCredits();
@@ -1359,9 +1414,14 @@ await logActivity(`Registró una venta por $${totalAmount.toFixed(2)} (${payment
 // 🔧 FIX: refrescar historial de ventas y el selector de facturas
 salesHistory.unshift(saleData);
 calculateFinancialDashboard();
-populateInvoiceSelects();
+await loadInvoicesList();
 
-alert("Venta completada con éxito.");
+if (invErr) {
+  alert(`Venta completada con éxito, pero hubo un error generando la factura: ${invErr.message}`);
+} else {
+  await logActivity(`Generó automáticamente la factura ${invData.invoice_number}`);
+  alert(`Venta completada con éxito. Factura ${invData.invoice_number} generada.`);
+}
         } catch (err) {
           alert("Error al procesar la venta: " + err.message);
         }
@@ -1731,67 +1791,38 @@ alert("Venta completada con éxito.");
     // 8d. MÓDULO DE FACTURAS
     // -------------------------------------------------------------
     function initInvoices() {
-      populateInvoiceSelects();
-
-      document.getElementById('btn-generate-invoice').onclick = async () => {
-        const saleId = document.getElementById('invoice-sale-select').value;
-        const customerId = document.getElementById('invoice-customer-select').value || null;
-        const sale = salesHistory.find(s => s.id === saleId);
-        if (!sale) return alert("Selecciona una venta para facturar.");
-
-        const taxEnabled = currentBusinessData?.tax_enabled;
-        const taxRate = taxEnabled ? (currentBusinessData.tax_percentage / 100) : 0;
-        let subtotal = sale.total;
-        let taxAmount = 0;
-
-        if (taxEnabled) {
-          if (currentBusinessData.tax_included_in_price) {
-            subtotal = sale.total / (1 + taxRate);
-            taxAmount = sale.total - subtotal;
-          } else {
-            taxAmount = sale.total * taxRate;
-          }
-        }
-        const total = subtotal + taxAmount;
-        const invoiceNumber = 'FAC-' + Math.floor(100000 + Math.random() * 900000);
-
-        const { data: invData, error } = await supabase.from('invoices').insert([{
-          business_id: currentBusinessId,
-          sale_id: saleId,
-          customer_id: customerId,
-          invoice_number: invoiceNumber,
-          subtotal: subtotal,
-          tax_amount: taxAmount,
-          total: total
-        }]).select().single();
-
-        if (error) return alert("Error al generar factura: " + error.message);
-
-        await logActivity(`Generó la factura ${invoiceNumber}`);
-        generateInvoicePDF(invData, sale);
-        await loadInvoicesList();
-      };
+      loadInvoicesList();
     }
 
-    function populateInvoiceSelects() {
-      const custSelect = document.getElementById('invoice-customer-select');
-      custSelect.innerHTML = '<option value="">Cliente General</option>';
-      customersSnapshot.forEach(c => {
-        const opt = document.createElement('option');
-        opt.value = c.id; opt.textContent = c.name;
-        custSelect.appendChild(opt);
-      });
+    // Calcula impuestos y genera la factura correspondiente a una venta.
+    // Se invoca automáticamente al completar cualquier venta (Efectivo, Tarjeta,
+    // Transferencia o Crédito), garantizando la relación 1:1 Venta-Factura.
+    async function createInvoiceForSale(sale, customerId) {
+      const taxEnabled = currentBusinessData?.tax_enabled;
+      const taxRate = taxEnabled ? (currentBusinessData.tax_percentage / 100) : 0;
+      let subtotal = sale.total;
+      let taxAmount = 0;
 
-      const saleSelect = document.getElementById('invoice-sale-select');
-      saleSelect.innerHTML = '';
-      salesHistory.slice(0, 30).forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s.id;
-        opt.textContent = `${new Date(s.created_at).toLocaleString()} - $${parseFloat(s.total).toFixed(2)}`;
-        saleSelect.appendChild(opt);
-      });
+      if (taxEnabled) {
+        if (currentBusinessData.tax_included_in_price) {
+          subtotal = sale.total / (1 + taxRate);
+          taxAmount = sale.total - subtotal;
+        } else {
+          taxAmount = sale.total * taxRate;
+        }
+      }
+      const total = subtotal + taxAmount;
+      const invoiceNumber = 'FAC-' + Math.floor(100000 + Math.random() * 900000);
 
-      loadInvoicesList();
+      return supabase.from('invoices').insert([{
+        business_id: currentBusinessId,
+        sale_id: sale.id,
+        customer_id: customerId || null,
+        invoice_number: invoiceNumber,
+        subtotal: subtotal,
+        tax_amount: taxAmount,
+        total: total
+      }]).select().single();
     }
 
     async function loadInvoicesList() {
