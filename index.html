@@ -1362,6 +1362,8 @@ calculateFinancialDashboard();
 populateInvoiceSelects();
 
 alert("Venta completada con éxito.");
+        } catch (err) {
+          alert("Error al procesar la venta: " + err.message);
         }
       };
     }
