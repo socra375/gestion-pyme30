@@ -26,9 +26,10 @@
 
   <!-- Supabase JS v2 CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Chart.js y jsPDF -->
+  <!-- Chart.js, jsPDF y html2canvas -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
   <style>
     :root {
@@ -304,6 +305,51 @@
     .tab-btn.active { background: var(--accent-profit); color: #0B1120; font-weight: bold; border-color: var(--accent-profit); }
     .tab-content.hidden { display: none; }
     .low-stock-option { background-color: rgba(255, 90, 95, 0.25) !important; color: var(--accent-expense) !important; }
+
+    /* FACTURA: vista previa editable (imagen / PDF) */
+    #modal-invoice {
+      position: fixed; top: 3%; left: 2%; right: 2%; bottom: 3%;
+      z-index: 350; overflow-y: auto;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 1rem;
+    }
+    .invoice-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+    .invoice-modal-header button { width: auto; margin: 0; padding: 0.3rem 0.6rem; }
+    .invoice-modal-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+    .invoice-modal-actions button { width: auto; margin: 0; }
+    .invoice-hint { font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem; }
+
+    .invoice-paper {
+      background: #ffffff;
+      color: #1a1a1a;
+      padding: 2rem;
+      border-radius: 4px;
+      font-family: var(--font-inter);
+    }
+    .invoice-paper * { color: #1a1a1a; }
+    .invoice-top { display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem; border-bottom: 3px solid #1a1a1a; padding-bottom: 1rem; margin-bottom: 1rem; }
+    .invoice-biz img { max-height: 50px; margin-bottom: 0.4rem; }
+    .invoice-biz h2 { font-family: var(--font-grotesk); font-size: 1.3rem; margin-bottom: 0.2rem; }
+    .invoice-biz p { font-size: 0.8rem; margin: 0; line-height: 1.3; }
+    .invoice-meta { text-align: right; }
+    .invoice-meta h1 { font-family: var(--font-grotesk); font-size: 1.8rem; letter-spacing: 2px; margin-bottom: 0.3rem; }
+    .invoice-meta p { font-size: 0.85rem; margin: 0.1rem 0; }
+    .invoice-billto { margin-bottom: 1.25rem; }
+    .invoice-billto h4 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; color: #666; margin-bottom: 0.3rem; }
+    .invoice-paper table { width: 100%; border-collapse: collapse; margin-bottom: 0.75rem; }
+    .invoice-paper th { background: #f0f0f0; text-align: left; font-size: 0.8rem; text-transform: uppercase; padding: 0.5rem; border-bottom: 2px solid #ddd; }
+    .invoice-paper td { padding: 0.5rem; border-bottom: 1px solid #eee; font-size: 0.9rem; }
+    .invoice-paper td.num, .invoice-paper th.num { text-align: right; }
+    .invoice-totals { margin-left: auto; width: 260px; }
+    .invoice-totals div { display: flex; justify-content: space-between; padding: 0.3rem 0; font-size: 0.9rem; }
+    .invoice-totals .total-final { border-top: 2px solid #1a1a1a; font-weight: bold; font-size: 1.05rem; margin-top: 0.3rem; }
+    .invoice-editable { outline: none; border-radius: 3px; }
+    .invoice-editable:hover, .invoice-editable:focus { background: #fff8e1; box-shadow: 0 0 0 1px #f5b942; }
+    .invoice-notes { margin-top: 1.5rem; font-size: 0.85rem; border-top: 1px dashed #ccc; padding-top: 0.75rem; }
+    .btn-remove-item { background: #ff5a5f; color: #fff !important; border: none; border-radius: 4px; padding: 0.2rem 0.5rem; font-size: 0.75rem; width: auto; margin: 0; cursor: pointer; }
+    #btn-invoice-add-row { width: auto; margin: 0 0 1rem 0; padding: 0.3rem 0.7rem; font-size: 0.8rem; background: #eee; color: #1a1a1a; border: 1px solid #ccc; }
   </style>
 </head>
 <body>
@@ -785,6 +831,63 @@
     <input type="password" id="input-new-password" placeholder="Mínimo 6 caracteres">
     <button id="btn-save-password" class="btn-primary">Guardar Contraseña</button>
     <button id="btn-close-password" style="background: transparent;">Cancelar</button>
+  </div>
+
+  <!-- FACTURA: vista previa editable, generada como imagen -->
+  <div id="modal-invoice" class="hidden">
+    <div class="invoice-modal-header">
+      <h3 style="margin:0;">Factura</h3>
+      <button id="btn-close-invoice">Cerrar</button>
+    </div>
+    <p class="invoice-hint">Puedes editar cualquier campo (cliente, líneas, notas) antes de descargar.</p>
+
+    <div id="invoice-paper" class="invoice-paper">
+      <div class="invoice-top">
+        <div class="invoice-biz">
+          <img id="inv-biz-logo" class="hidden" alt="Logo">
+          <h2 id="inv-biz-name" class="invoice-editable" contenteditable="true">Mi Negocio</h2>
+          <p id="inv-biz-legal"></p>
+          <p id="inv-biz-address"></p>
+          <p id="inv-biz-phone"></p>
+          <p id="inv-biz-tax"></p>
+        </div>
+        <div class="invoice-meta">
+          <h1>FACTURA</h1>
+          <p><strong>N°:</strong> <span id="inv-number"></span></p>
+          <p><strong>Fecha:</strong> <span id="inv-date"></span></p>
+        </div>
+      </div>
+
+      <div class="invoice-billto">
+        <h4>Facturar a</h4>
+        <p id="inv-customer-name" class="invoice-editable" contenteditable="true">Cliente General</p>
+        <p id="inv-customer-phone" class="invoice-editable" contenteditable="true"></p>
+      </div>
+
+      <table>
+        <thead>
+          <tr><th>Descripción</th><th class="num">Cant.</th><th class="num">Precio Unit.</th><th class="num">Importe</th><th></th></tr>
+        </thead>
+        <tbody id="inv-items-body"></tbody>
+      </table>
+      <button type="button" id="btn-invoice-add-row">+ Agregar línea</button>
+
+      <div class="invoice-totals">
+        <div><span>Subtotal</span><span id="inv-subtotal">$0.00</span></div>
+        <div><span>Impuesto</span><span id="inv-tax">$0.00</span></div>
+        <div class="total-final"><span>Total</span><span id="inv-total">$0.00</span></div>
+      </div>
+
+      <div class="invoice-notes">
+        <strong>Notas:</strong>
+        <p id="inv-notes" class="invoice-editable" contenteditable="true">Gracias por su compra.</p>
+      </div>
+    </div>
+
+    <div class="invoice-modal-actions">
+      <button id="btn-download-invoice-png" class="btn-primary">🖼️ Descargar como Imagen</button>
+      <button id="btn-download-invoice-pdf">📄 Descargar PDF</button>
+    </div>
   </div>
 
   <nav id="app-nav" class="bottom-nav hidden">
@@ -1420,7 +1523,7 @@ if (invErr) {
   alert(`Venta completada con éxito, pero hubo un error generando la factura: ${invErr.message}`);
 } else {
   await logActivity(`Generó automáticamente la factura ${invData.invoice_number}`);
-  alert(`Venta completada con éxito. Factura ${invData.invoice_number} generada.`);
+  openInvoiceModal(invData, saleData);
 }
         } catch (err) {
           alert("Error al procesar la venta: " + err.message);
@@ -1837,71 +1940,120 @@ if (invErr) {
             <td>${inv.invoice_number}</td>
             <td>${new Date(inv.created_at).toLocaleDateString()}</td>
             <td class="font-numeric">$${parseFloat(inv.total).toFixed(2)}</td>
-            <td><button class="btn-re-pdf" data-id="${inv.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">PDF</button></td>
+            <td><button class="btn-view-invoice" data-id="${inv.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Ver</button></td>
           `;
           tbody.appendChild(tr);
         });
-        tbody.querySelectorAll('.btn-re-pdf').forEach(btn => {
-          btn.onclick = (e) => {
+        tbody.querySelectorAll('.btn-view-invoice').forEach(btn => {
+          btn.onclick = async (e) => {
             const inv = data.find(i => i.id === e.target.dataset.id);
-            if (inv) generateInvoicePDF(inv, null);
+            if (!inv) return;
+            let sale = salesHistory.find(s => s.id === inv.sale_id);
+            if (!sale && inv.sale_id) {
+              const { data: saleRow } = await supabase.from('sales').select('*').eq('id', inv.sale_id).single();
+              sale = saleRow;
+            }
+            openInvoiceModal(inv, sale);
           };
         });
       }
     }
 
-    function generateInvoicePDF(invoice, sale) {
-      const { jsPDF } = window.jspdf;
-      const doc = new jsPDF();
-      const b = currentBusinessData || {};
-      const curr = b.currency_symbol || '$';
+    // -------------------------------------------------------------
+    // 8e. FACTURA: vista previa editable, generada como imagen dentro de la web
+    // -------------------------------------------------------------
+    function addInvoiceItemRow(item) {
+      const tbody = document.getElementById('inv-items-body');
+      const tr = document.createElement('tr');
+      const qty = item?.qty ?? 1;
+      const price = item?.price ?? 0;
+      tr.innerHTML = `
+        <td class="invoice-editable" contenteditable="true">${item?.name || ''}</td>
+        <td class="num invoice-editable inv-qty" contenteditable="true">${qty}</td>
+        <td class="num invoice-editable inv-price" contenteditable="true">${parseFloat(price).toFixed(2)}</td>
+        <td class="num inv-line-total">0.00</td>
+        <td><button type="button" class="btn-remove-item">✕</button></td>
+      `;
+      tbody.appendChild(tr);
 
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.text(b.name || "Mi Negocio", 14, 20);
-
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      let y = 26;
-      if (b.legal_name) { doc.text(b.legal_name, 14, y); y += 5; }
-      if (b.tax_id) { doc.text(`RNC/Tax ID: ${b.tax_id}`, 14, y); y += 5; }
-      if (b.address) { doc.text(b.address, 14, y); y += 5; }
-      if (b.phone) { doc.text(`Tel: ${b.phone}`, 14, y); y += 5; }
-
-      doc.setFont("helvetica", "bold");
-      doc.text(`FACTURA N°: ${invoice.invoice_number}`, 140, 20);
-      doc.setFont("helvetica", "normal");
-      doc.text(`Fecha: ${new Date(invoice.created_at).toLocaleDateString()}`, 140, 26);
-
-      y = Math.max(y, 36);
-      doc.line(14, y, 196, y);
-      y += 8;
-
-      if (sale && sale.items) {
-        doc.setFont("helvetica", "bold");
-        doc.text("Producto", 14, y);
-        doc.text("Cant", 120, y);
-        doc.text("Total", 170, y);
-        y += 5;
-        doc.setFont("helvetica", "normal");
-        sale.items.forEach(item => {
-          doc.text(String(item.name).substring(0, 40), 14, y);
-          doc.text(String(item.qty), 120, y);
-          doc.text(`${curr}${item.subtotal.toFixed(2)}`, 170, y);
-          y += 5;
-        });
-        y += 4;
-        doc.line(14, y, 196, y);
-        y += 8;
-      }
-
-      doc.text(`Subtotal: ${curr}${parseFloat(invoice.subtotal).toFixed(2)}`, 140, y); y += 6;
-      doc.text(`Impuesto: ${curr}${parseFloat(invoice.tax_amount).toFixed(2)}`, 140, y); y += 6;
-      doc.setFont("helvetica", "bold");
-      doc.text(`TOTAL: ${curr}${parseFloat(invoice.total).toFixed(2)}`, 140, y);
-
-      doc.save(`${invoice.invoice_number}.pdf`);
+      tr.querySelectorAll('.inv-qty, .inv-price').forEach(cell => {
+        cell.addEventListener('input', recalcInvoiceTotals);
+      });
+      tr.querySelector('.btn-remove-item').onclick = () => { tr.remove(); recalcInvoiceTotals(); };
+      recalcInvoiceTotals();
     }
+
+    function recalcInvoiceTotals() {
+      let subtotal = 0;
+      document.querySelectorAll('#inv-items-body tr').forEach(tr => {
+        const qty = parseFloat(tr.querySelector('.inv-qty').textContent) || 0;
+        const price = parseFloat(tr.querySelector('.inv-price').textContent) || 0;
+        const lineTotal = qty * price;
+        tr.querySelector('.inv-line-total').textContent = lineTotal.toFixed(2);
+        subtotal += lineTotal;
+      });
+
+      const taxEnabled = currentBusinessData?.tax_enabled;
+      const taxRate = taxEnabled ? (currentBusinessData.tax_percentage / 100) : 0;
+      const taxAmount = subtotal * taxRate;
+      const total = subtotal + taxAmount;
+      const curr = currentBusinessData?.currency_symbol || '$';
+
+      document.getElementById('inv-subtotal').textContent = `${curr}${subtotal.toFixed(2)}`;
+      document.getElementById('inv-tax').textContent = `${curr}${taxAmount.toFixed(2)}`;
+      document.getElementById('inv-total').textContent = `${curr}${total.toFixed(2)}`;
+    }
+
+    function openInvoiceModal(invoice, sale) {
+      const b = currentBusinessData || {};
+
+      document.getElementById('inv-biz-name').textContent = b.name || 'Mi Negocio';
+      document.getElementById('inv-biz-legal').textContent = b.legal_name || '';
+      document.getElementById('inv-biz-address').textContent = b.address || '';
+      document.getElementById('inv-biz-phone').textContent = b.phone ? `Tel: ${b.phone}` : '';
+      document.getElementById('inv-biz-tax').textContent = b.tax_id ? `RNC/Tax ID: ${b.tax_id}` : '';
+      const logoImg = document.getElementById('inv-biz-logo');
+      if (b.logo_url) { logoImg.src = b.logo_url; logoImg.classList.remove('hidden'); }
+      else { logoImg.classList.add('hidden'); }
+
+      document.getElementById('inv-number').textContent = invoice.invoice_number;
+      document.getElementById('inv-date').textContent = new Date(invoice.created_at).toLocaleDateString();
+
+      const customer = customersSnapshot.find(c => c.id === invoice.customer_id);
+      document.getElementById('inv-customer-name').textContent = customer?.name || 'Cliente General';
+      document.getElementById('inv-customer-phone').textContent = customer?.phone || '';
+
+      document.getElementById('inv-items-body').innerHTML = '';
+      if (sale?.items?.length) {
+        sale.items.forEach(item => addInvoiceItemRow({ name: item.name, qty: item.qty, price: item.price }));
+      } else {
+        addInvoiceItemRow({ name: 'Producto/Servicio', qty: 1, price: invoice.subtotal });
+      }
+      recalcInvoiceTotals();
+
+      document.getElementById('inv-notes').textContent = 'Gracias por su compra.';
+
+      document.getElementById('modal-invoice').classList.remove('hidden');
+    }
+
+    document.getElementById('btn-close-invoice').onclick = () => document.getElementById('modal-invoice').classList.add('hidden');
+    document.getElementById('btn-invoice-add-row').onclick = () => addInvoiceItemRow({ name: '', qty: 1, price: 0 });
+
+    document.getElementById('btn-download-invoice-png').onclick = async () => {
+      const canvas = await html2canvas(document.getElementById('invoice-paper'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const link = document.createElement('a');
+      link.download = `${document.getElementById('inv-number').textContent || 'factura'}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+
+    document.getElementById('btn-download-invoice-pdf').onclick = async () => {
+      const canvas = await html2canvas(document.getElementById('invoice-paper'), { scale: 2, backgroundColor: '#ffffff', useCORS: true });
+      const { jsPDF } = window.jspdf;
+      const pdf = new jsPDF({ unit: 'px', format: [canvas.width, canvas.height] });
+      pdf.addImage(canvas.toDataURL('image/png'), 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${document.getElementById('inv-number').textContent || 'factura'}.pdf`);
+    };
 
     // -------------------------------------------------------------
     // 9. INVENTARIO & REPORTES AUXILIARES
