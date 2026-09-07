@@ -208,24 +208,6 @@
     .period-btn { padding: 0.4rem 0.8rem; font-size: 0.85rem; margin: 0; background: #141B2E; border: 1px solid var(--border-subtle); }
     .period-btn.active { background: var(--accent-profit); color: #0B1120; font-weight: bold; }
 
-    .segmented-bar {
-      display: flex;
-      height: 14px;
-      border-radius: 7px;
-      overflow: hidden;
-      background-color: #070B14;
-      margin: 1rem 0;
-    }
-    .segment { height: 100%; transition: width 0.4s ease; }
-    .seg-inventory { background-color: var(--accent-profit); }
-    .seg-operations { background-color: #3B82F6; }
-    .seg-savings { background-color: var(--accent-recommend); }
-    .seg-personal { background-color: #A855F7; }
-
-    .recommend-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; margin-top: 0.75rem; }
-    .recommend-item { font-size: 0.85rem; color: var(--text-muted); }
-    .recommend-item strong { display: block; color: var(--text-primary); font-family: var(--font-grotesk); font-size: 1.1rem; }
-
     .table-responsive { overflow-x: auto; }
     table { width: 100%; border-collapse: collapse; margin-top: 0.5rem; }
     th, td { padding: 0.75rem; text-align: left; border-bottom: 1px solid var(--border-subtle); font-size: 0.9rem; }
@@ -493,28 +475,6 @@
           <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo pendiente total clientes</span>
         </div>
 
-        <!-- Recomendaciones -->
-        <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-recommend);">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Cómo distribuir tu ganancia</h3>
-          </div>
-          <div class="segmented-bar">
-            <div id="seg-inv" class="segment seg-inventory" style="width: 40%;"></div>
-            <div id="seg-ops" class="segment seg-operations" style="width: 30%;"></div>
-            <div id="seg-sav" class="segment seg-savings" style="width: 15%;"></div>
-            <div id="seg-per" class="segment seg-personal" style="width: 15%;"></div>
-          </div>
-          <p id="recommend-advice-text" style="font-size: 0.85rem; color: var(--text-muted);">
-            Basado en tu ganancia, asigna los recursos recomendados para mantener la salud financiera.
-          </p>
-          <div class="recommend-grid">
-            <div class="recommend-item"><span style="color: var(--accent-profit);">■ Reinversión (<span id="lbl-pct-inv">40</span>%)</span><strong id="rec-val-inv">$0.00</strong></div>
-            <div class="recommend-item"><span style="color: #3B82F6;">■ Operación (<span id="lbl-pct-ops">30</span>%)</span><strong id="rec-val-ops">$0.00</strong></div>
-            <div class="recommend-item"><span style="color: var(--accent-recommend);">■ Fondo Emerg. (<span id="lbl-pct-sav">15</span>%)</span><strong id="rec-val-sav">$0.00</strong></div>
-            <div class="recommend-item"><span style="color: #A855F7;">■ Uso Personal (<span id="lbl-pct-per">15</span>%)</span><strong id="rec-val-per">$0.00</strong></div>
-          </div>
-        </div>
-
         <!-- Alertas Stock -->
         <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-expense);">
           <h3>Alertas de Stock Bajo</h3>
@@ -675,6 +635,15 @@
           <tbody id="invoices-table-body"></tbody>
         </table>
       </div>
+
+      <div class="card table-responsive">
+        <h3>Créditos y Abonos</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Ventas a crédito de todos los clientes: cuánto debían, cuánto han abonado y cuánto les queda pendiente.</p>
+        <table>
+          <thead><tr><th>Cliente</th><th>Fecha</th><th>Debía</th><th>Abonado</th><th>Pendiente</th><th>Estado</th></tr></thead>
+          <tbody id="credits-invoice-table-body"></tbody>
+        </table>
+      </div>
     </section>
 
     <!-- MÓDULO: GESTIÓN DE EMPLEADOS (SOLO ADMIN) -->
@@ -755,9 +724,6 @@
           </button>
           <button type="button" class="settings-list-item" data-subpage="tab-cfg-alerts">
             <span class="settings-list-icon">📦</span><span>Inventario/Alertas</span><span class="settings-list-chevron">›</span>
-          </button>
-          <button type="button" class="settings-list-item" data-subpage="tab-cfg-profit">
-            <span class="settings-list-icon">📊</span><span>Distribución Ganancias</span><span class="settings-list-chevron">›</span>
           </button>
           <button type="button" class="settings-list-item" data-subpage="tab-cfg-activity">
             <span class="settings-list-icon">📜</span><span>Registro Actividad</span><span class="settings-list-chevron">›</span>
@@ -845,19 +811,6 @@
             <input type="checkbox" id="cfg-global-low-stock" style="width: auto; margin: 0;" checked>
           </label>
           <button type="submit" class="btn-primary">Guardar Ajustes de Inventario</button>
-        </form>
-      </div>
-
-      <!-- Distribución de Ganancias -->
-      <div id="tab-cfg-profit" class="settings-subpage card hidden">
-        <form id="form-cfg-profit">
-          <p style="font-size: 0.8rem; color: var(--text-muted);">La suma de los 4 campos debe ser exactamente 100%.</p>
-          <label>Reinversión Inventario (%)</label><input type="number" id="cfg-pct-inv" value="40" min="0" max="100">
-          <label>Operación / Empleados (%)</label><input type="number" id="cfg-pct-ops" value="30" min="0" max="100">
-          <label>Fondo de Emergencia (%)</label><input type="number" id="cfg-pct-sav" value="15" min="0" max="100">
-          <label>Uso Personal (%)</label><input type="number" id="cfg-pct-per" value="15" min="0" max="100">
-          <div style="margin-top: 0.5rem; font-weight: bold; font-size: 0.9rem;" id="cfg-sum-pct-indicator">Suma: 100%</div>
-          <button type="submit" class="btn-primary">Guardar Distribución</button>
         </form>
       </div>
 
@@ -966,7 +919,6 @@
     let creditsSnapshot = [];
     let cart = [];
     let activePeriod = 'today';
-    let userSettings = { pct_inventory: 40, pct_operations: 30, pct_savings: 15, pct_personal: 15 };
     let selectedBusinessType = 'individual';
     let heroChartAnimated = false;
     let modulesInitialized = false;
@@ -1274,13 +1226,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
         currentBusinessData = bData;
 
-        // Cargar Ajustes
-        const { data: sData } = await supabase.from('business_settings').select('*').eq('business_id', currentBusinessId).maybeSingle();
-        if (sData) {
-          userSettings = { pct_inventory: sData.pct_inventory, pct_operations: sData.pct_operations, pct_savings: sData.pct_savings, pct_personal: sData.pct_personal };
-        }
-        applySettingsToUI();
-
         // Ocultar Pantalla Login
         document.getElementById('auth-screen').classList.add('auth-exit');
 
@@ -1437,8 +1382,37 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       if (data) {
         creditsSnapshot = data;
         renderCustomersTable();
+        renderCreditsInvoiceTable();
         calculateFinancialDashboard();
       }
+    }
+
+    // Muestra en Facturas cada venta a crédito: cuánto debía, cuánto ha abonado y cuánto queda pendiente
+    function renderCreditsInvoiceTable() {
+      const tbody = document.getElementById('credits-invoice-table-body');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      creditsSnapshot
+        .slice()
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        .forEach(cr => {
+          const customer = customersSnapshot.find(c => c.id === cr.customer_id);
+          const owed = parseFloat(cr.amount);
+          const paid = parseFloat(cr.amount_paid);
+          const pending = owed - paid;
+
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${customer?.name || 'Cliente'}</td>
+            <td>${new Date(cr.created_at).toLocaleDateString()}</td>
+            <td class="font-numeric">$${owed.toFixed(2)}</td>
+            <td class="font-numeric">$${paid.toFixed(2)}</td>
+            <td class="font-numeric" style="color: ${pending > 0 ? 'var(--accent-expense)' : 'var(--accent-profit)'}">$${pending.toFixed(2)}</td>
+            <td><span class="badge-status status-${cr.status}">${cr.status.toUpperCase()}</span></td>
+          `;
+          tbody.appendChild(tr);
+        });
     }
 
     function renderCustomersTable() {
@@ -1753,19 +1727,6 @@ if (invErr) {
       const profitRatio = grossSales > 0 ? ((netProfit / grossSales) * 100).toFixed(0) : 0;
       document.getElementById('dash-profit-ratio').textContent = `${profitRatio}% de ventas`;
 
-      const recInv = (netProfit * userSettings.pct_inventory) / 100;
-      const recOps = (netProfit * userSettings.pct_operations) / 100;
-      const recSav = (netProfit * userSettings.pct_savings) / 100;
-      const recPer = (netProfit * userSettings.pct_personal) / 100;
-
-      document.getElementById('rec-val-inv').textContent = `$${recInv.toFixed(2)}`;
-      document.getElementById('rec-val-ops').textContent = `$${recOps.toFixed(2)}`;
-      document.getElementById('rec-val-sav').textContent = `$${recSav.toFixed(2)}`;
-      document.getElementById('rec-val-per').textContent = `$${recPer.toFixed(2)}`;
-
-      document.getElementById('recommend-advice-text').textContent =
-        `Con $${netProfit.toFixed(2)} de ganancia neta en este período, asigna $${recInv.toFixed(2)} a reponer inventario y $${recOps.toFixed(2)} a gastos operativos.`;
-
       renderCircularDashboard(grossSales, netProfit, expenses);
     }
 
@@ -1838,18 +1799,6 @@ if (invErr) {
       heroChartAnimated = true;
     }
 
-    function applySettingsToUI() {
-      document.getElementById('lbl-pct-inv').textContent = userSettings.pct_inventory;
-      document.getElementById('lbl-pct-ops').textContent = userSettings.pct_operations;
-      document.getElementById('lbl-pct-sav').textContent = userSettings.pct_savings;
-      document.getElementById('lbl-pct-per').textContent = userSettings.pct_personal;
-
-      document.getElementById('seg-inv').style.width = `${userSettings.pct_inventory}%`;
-      document.getElementById('seg-ops').style.width = `${userSettings.pct_operations}%`;
-      document.getElementById('seg-sav').style.width = `${userSettings.pct_savings}%`;
-      document.getElementById('seg-per').style.width = `${userSettings.pct_personal}%`;
-    }
-
     // -------------------------------------------------------------
     // 8b. REGISTRO DE ACTIVIDAD (BITÁCORA)
     // -------------------------------------------------------------
@@ -1904,11 +1853,6 @@ if (invErr) {
       document.getElementById('cfg-pm-credito').checked = pm.credito !== false;
 
       document.getElementById('cfg-global-low-stock').checked = b.global_low_stock_alert !== false;
-
-      document.getElementById('cfg-pct-inv').value = userSettings.pct_inventory;
-      document.getElementById('cfg-pct-ops').value = userSettings.pct_operations;
-      document.getElementById('cfg-pct-sav').value = userSettings.pct_savings;
-      document.getElementById('cfg-pct-per').value = userSettings.pct_personal;
 
       if (b.logo_url) document.getElementById('cfg-logo-preview').src = b.logo_url;
     }
@@ -1991,26 +1935,6 @@ if (invErr) {
       currentBusinessData.global_low_stock_alert = val;
       await logActivity('Actualizó alerta de stock bajo');
       alert("Ajustes de inventario guardados.");
-    });
-
-    document.getElementById('form-cfg-profit').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const pInv = parseInt(document.getElementById('cfg-pct-inv').value) || 0;
-      const pOps = parseInt(document.getElementById('cfg-pct-ops').value) || 0;
-      const pSav = parseInt(document.getElementById('cfg-pct-sav').value) || 0;
-      const pPer = parseInt(document.getElementById('cfg-pct-per').value) || 0;
-
-      if (pInv + pOps + pSav + pPer !== 100) return alert("La suma de los porcentajes debe ser exactamente 100%");
-
-      userSettings = { pct_inventory: pInv, pct_operations: pOps, pct_savings: pSav, pct_personal: pPer };
-      const { error } = await supabase.from('business_settings').upsert({
-        business_id: currentBusinessId, ...userSettings, updated_at: new Date()
-      });
-      if (error) return alert("Error: " + error.message);
-
-      await logActivity('Actualizó la distribución de ganancias');
-      calculateFinancialDashboard();
-      alert("Distribución de ganancias guardada.");
     });
 
     // -------------------------------------------------------------
