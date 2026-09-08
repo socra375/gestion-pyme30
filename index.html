@@ -1852,6 +1852,7 @@ if (paymentMethod === 'Crédito') {
       const totals = {};
       sales.forEach(s => {
         (s.items || []).forEach(item => {
+          if (!item.id) return; // ignora ítems que no son productos del inventario (ej. abonos a crédito)
           const key = item.name || 'Producto';
           if (!totals[key]) totals[key] = { qty: 0, revenue: 0 };
           totals[key].qty += parseFloat(item.qty) || 0;
