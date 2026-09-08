@@ -476,6 +476,24 @@
           <span style="font-size: 0.75rem; color: var(--text-muted);">Saldo pendiente total clientes</span>
         </div>
 
+        <!-- Créditos Vencidos -->
+        <div class="card card-stagger" style="border-left: 4px solid var(--accent-expense);">
+          <h3>⚠️ Créditos Vencidos</h3>
+          <ul id="dash-overdue-credits-list" style="margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.9rem;"></ul>
+        </div>
+
+        <!-- Productos Más Vendidos -->
+        <div class="card card-stagger">
+          <h3>Productos Más Vendidos</h3>
+          <ol id="dash-top-products-list" style="margin-top: 0.5rem; padding-left: 1.2rem; font-size: 0.9rem;"></ol>
+        </div>
+
+        <!-- Ventas por Método de Pago -->
+        <div class="card card-stagger">
+          <h3>Ventas por Método de Pago</h3>
+          <div id="dash-payment-breakdown" style="margin-top: 0.5rem; font-size: 0.9rem;"></div>
+        </div>
+
         <!-- Alertas Stock -->
         <div class="card hero-metric card-stagger" style="border-left-color: var(--accent-expense);">
           <h3>Alertas de Stock Bajo</h3>
@@ -1801,7 +1819,77 @@ if (paymentMethod === 'Crédito') {
       const profitRatio = grossSales > 0 ? ((netProfit / grossSales) * 100).toFixed(0) : 0;
       document.getElementById('dash-profit-ratio').textContent = `${profitRatio}% de ventas`;
 
+      // Tarjetas informativas adicionales del Dashboard (no deben interrumpir el resto si fallan)
+      try { renderOverdueCredits(); } catch (e) { console.error('renderOverdueCredits:', e); }
+      try { renderTopProducts(filteredSales); } catch (e) { console.error('renderTopProducts:', e); }
+      try { renderPaymentBreakdown(filteredSales); } catch (e) { console.error('renderPaymentBreakdown:', e); }
+
       renderCircularDashboard(grossSales, netProfit, expenses);
+    }
+
+    // Lista los créditos vencidos (fecha límite pasada, aún no pagados en su totalidad)
+    function renderOverdueCredits() {
+      const list = document.getElementById('dash-overdue-credits-list');
+      if (!list) return;
+
+      const overdue = creditsSnapshot.filter(cr => cr.status !== 'pagado' && cr.due_date && isPastDueDate(cr.due_date));
+      if (overdue.length === 0) {
+        list.innerHTML = '<li style="list-style: none; margin-left: -1.2rem; color: var(--text-muted);">Sin créditos vencidos. 🎉</li>';
+        return;
+      }
+      list.innerHTML = overdue.map(cr => {
+        const customer = customersSnapshot.find(c => c.id === cr.customer_id);
+        const pending = parseFloat(cr.amount) - parseFloat(cr.amount_paid);
+        return `<li style="color: var(--accent-expense);">${customer?.name || 'Cliente'} — $${pending.toFixed(2)} pendiente (venció ${formatDateOnly(cr.due_date)})</li>`;
+      }).join('');
+    }
+
+    // Top 5 productos más vendidos (por cantidad) dentro del período activo del Dashboard
+    function renderTopProducts(sales) {
+      const list = document.getElementById('dash-top-products-list');
+      if (!list) return;
+
+      const totals = {};
+      sales.forEach(s => {
+        (s.items || []).forEach(item => {
+          const key = item.name || 'Producto';
+          if (!totals[key]) totals[key] = { qty: 0, revenue: 0 };
+          totals[key].qty += parseFloat(item.qty) || 0;
+          totals[key].revenue += parseFloat(item.subtotal) || 0;
+        });
+      });
+
+      const top = Object.entries(totals).sort((a, b) => b[1].qty - a[1].qty).slice(0, 5);
+      if (top.length === 0) {
+        list.innerHTML = '<li style="list-style: none; margin-left: -1.2rem; color: var(--text-muted);">Sin ventas en este período.</li>';
+        return;
+      }
+      const curr = currentBusinessData?.currency_symbol || '$';
+      list.innerHTML = top.map(([name, t]) => `<li>${name} — ${t.qty} uds. (${curr}${t.revenue.toFixed(2)})</li>`).join('');
+    }
+
+    // Desglose de ventas por método de pago dentro del período activo del Dashboard
+    function renderPaymentBreakdown(sales) {
+      const el = document.getElementById('dash-payment-breakdown');
+      if (!el) return;
+
+      const totals = {};
+      sales.forEach(s => {
+        const method = s.payment_method || 'Otro';
+        totals[method] = (totals[method] || 0) + parseFloat(s.total);
+      });
+
+      const entries = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+      if (entries.length === 0) {
+        el.innerHTML = '<p style="color: var(--text-muted); margin:0;">Sin ventas en este período.</p>';
+        return;
+      }
+      const curr = currentBusinessData?.currency_symbol || '$';
+      el.innerHTML = entries.map(([method, total]) => `
+        <div style="display:flex; justify-content:space-between; padding:0.25rem 0; border-bottom: 1px solid var(--border-subtle);">
+          <span>${method}</span><span class="font-numeric">${curr}${total.toFixed(2)}</span>
+        </div>
+      `).join('');
     }
 
     function animateCounter(elementId, targetVal) {
