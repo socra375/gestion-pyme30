@@ -665,7 +665,7 @@
         <h3>Lista de Empleados Actuales</h3>
         <div class="table-responsive">
           <table>
-            <thead><tr><th>Nombre</th><th>Cargo</th><th>Rol Permisos</th><th>Agregado</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Cargo</th><th>Rol Permisos</th><th>Agregado</th><th>Acción</th></tr></thead>
             <tbody id="employees-table-body"></tbody>
           </table>
         </div>
@@ -761,6 +761,7 @@
           <div style="display: flex; gap: 1rem; align-items: center; margin-top: 0.5rem;">
             <img id="cfg-logo-preview" src="logo-header.png" style="width: 50px; height: 50px; border-radius: 8px; border: 1px solid var(--border-subtle); object-fit: cover;">
             <input type="file" id="cfg-logo-file" accept="image/*" style="margin-top: 0;">
+            <button type="button" id="btn-remove-logo" class="btn-danger" style="width: auto; margin: 0; padding: 0.5rem 0.8rem; font-size: 0.8rem;">Eliminar</button>
           </div>
           <button type="submit" class="btn-primary">Guardar Datos del Negocio</button>
         </form>
@@ -1344,10 +1345,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
     }
 
     function applyLogoToHeader() {
-      if (currentBusinessData?.logo_url) {
-        document.getElementById('header-logo-img').src = currentBusinessData.logo_url;
-        document.getElementById('cfg-logo-preview').src = currentBusinessData.logo_url;
-      }
+      const logoSrc = currentBusinessData?.logo_url || 'logo-header.png';
+      document.getElementById('header-logo-img').src = logoSrc;
+      document.getElementById('cfg-logo-preview').src = logoSrc;
     }
 
     // -------------------------------------------------------------
@@ -1668,12 +1668,21 @@ if (invErr) {
         data.forEach(m => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${m.employee_name || 'Sin nombre'}</td>
+            <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${m.employee_name || ''}" placeholder="Nombre" style="margin:0; padding:0.3rem;"></td>
             <td><input type="text" class="input-role-title" data-id="${m.id}" value="${m.role_title || ''}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
             <td><span class="badge-status status-pagado">Empleado</span></td>
             <td>${new Date(m.created_at).toLocaleDateString()}</td>
+            <td><button type="button" class="btn-remove-employee btn-danger" data-id="${m.id}" data-name="${m.employee_name || 'este empleado'}" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.8rem;">Eliminar</button></td>
           `;
           tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.input-employee-name').forEach(input => {
+          input.addEventListener('change', async (e) => {
+            const newName = e.target.value.trim();
+            await supabase.from('business_members').update({ employee_name: newName }).eq('id', e.target.dataset.id);
+            await logActivity(`Cambió el nombre de un empleado a "${newName}"`);
+          });
         });
 
         tbody.querySelectorAll('.input-role-title').forEach(input => {
@@ -1682,12 +1691,41 @@ if (invErr) {
             await logActivity(`Actualizó el cargo de un empleado a "${e.target.value}"`);
           });
         });
+
+        tbody.querySelectorAll('.btn-remove-employee').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const id = e.target.dataset.id;
+            const name = e.target.dataset.name;
+            if (!confirm(`¿Eliminar a "${name}" como empleado? Perderá el acceso al negocio.`)) return;
+            const { error } = await supabase.from('business_members').delete().eq('id', id);
+            if (error) return alert("Error al eliminar empleado: " + error.message);
+            await logActivity(`Eliminó al empleado "${name}"`);
+            await loadEmployeesList();
+          });
+        });
       }
     }
 
     // -------------------------------------------------------------
     // 8. DASHBOARD FINANCIERO Y CÁLCULOS
     // -------------------------------------------------------------
+    // % de cambio contra el período anterior (ayer, semana pasada, mes pasado)
+    function computeTrendPct(current, previous) {
+      if (previous === 0) return current > 0 ? 100 : 0;
+      return ((current - previous) / previous) * 100;
+    }
+
+    // invert=true para métricas donde subir es malo (ej. gastos)
+    function renderTrendBadge(elementId, pct, invert = false) {
+      const el = document.getElementById(elementId);
+      if (!el) return;
+      const isIncrease = pct >= 0;
+      const isGood = invert ? !isIncrease : isIncrease;
+      el.classList.toggle('trend-up', isGood);
+      el.classList.toggle('trend-down', !isGood);
+      el.textContent = `${isIncrease ? '↑' : '↓'} ${Math.abs(pct).toFixed(0)}%`;
+    }
+
     function calculateFinancialDashboard() {
       const now = new Date();
       let filteredSales = [];
@@ -1713,6 +1751,14 @@ if (invErr) {
       const grossSales = filteredSales.reduce((acc, s) => acc + parseFloat(s.total), 0);
       const netProfit = filteredSales.reduce((acc, s) => acc + parseFloat(s.profit), 0);
       const expenses = grossSales - netProfit;
+
+      const prevGrossSales = prevSales.reduce((acc, s) => acc + parseFloat(s.total), 0);
+      const prevNetProfit = prevSales.reduce((acc, s) => acc + parseFloat(s.profit), 0);
+      const prevExpenses = prevGrossSales - prevNetProfit;
+
+      renderTrendBadge('trend-sales', computeTrendPct(grossSales, prevGrossSales));
+      renderTrendBadge('trend-profit', computeTrendPct(netProfit, prevNetProfit));
+      renderTrendBadge('trend-expenses', computeTrendPct(expenses, prevExpenses), true);
 
       // Cálculo Métrica Cuentas por Cobrar
       const totalReceivables = creditsSnapshot.filter(cr => cr.status !== 'pagado')
@@ -1854,12 +1900,21 @@ if (invErr) {
 
       document.getElementById('cfg-global-low-stock').checked = b.global_low_stock_alert !== false;
 
-      if (b.logo_url) document.getElementById('cfg-logo-preview').src = b.logo_url;
+      document.getElementById('cfg-logo-preview').src = b.logo_url || 'logo-header.png';
+      logoMarkedForRemoval = false;
     }
+
+    let logoMarkedForRemoval = false;
+    document.getElementById('btn-remove-logo').onclick = () => {
+      if (!confirm("¿Eliminar el logotipo actual del negocio?")) return;
+      logoMarkedForRemoval = true;
+      document.getElementById('cfg-logo-file').value = '';
+      document.getElementById('cfg-logo-preview').src = 'logo-header.png';
+    };
 
     document.getElementById('form-cfg-business').addEventListener('submit', async (e) => {
       e.preventDefault();
-      let logoUrl = currentBusinessData?.logo_url || null;
+      let logoUrl = logoMarkedForRemoval ? null : (currentBusinessData?.logo_url || null);
 
       const fileInput = document.getElementById('cfg-logo-file');
       if (fileInput.files.length > 0) {
@@ -1889,6 +1944,7 @@ if (invErr) {
       if (error) return alert("Error: " + error.message);
 
       currentBusinessData = { ...currentBusinessData, ...updates };
+      logoMarkedForRemoval = false;
       document.getElementById('business-display-name').textContent = updates.name;
       applyLogoToHeader();
       await logActivity('Actualizó los datos del negocio');
