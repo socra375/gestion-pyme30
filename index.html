@@ -549,6 +549,9 @@
         <div id="credit-customer-container" class="smooth-collapse">
           <label style="color: var(--accent-recommend); font-weight: bold;">Cliente a Fiar (Obligatorio)</label>
           <select id="sale-customer-select"></select>
+          <label style="color: var(--accent-recommend); font-weight: bold;">Fecha Límite de Pago (Obligatorio)</label>
+          <input type="date" id="sale-credit-due-date">
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Si el cliente paga después de esta fecha, se le sumará automáticamente un 10% de interés por mora.</p>
         </div>
         
         <button id="btn-process-sale" class="btn-primary" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">Completar Venta</button>
@@ -597,6 +600,7 @@
           <thead>
             <tr>
               <th>Fecha</th>
+              <th>Fecha Límite</th>
               <th>Monto</th>
               <th>Abonado</th>
               <th>Estado</th>
@@ -633,15 +637,6 @@
         <table>
           <thead><tr><th>N° Factura</th><th>Fecha</th><th>Total</th><th>Acción</th></tr></thead>
           <tbody id="invoices-table-body"></tbody>
-        </table>
-      </div>
-
-      <div class="card table-responsive">
-        <h3>Créditos y Abonos</h3>
-        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.5rem;">Ventas a crédito de todos los clientes: cuánto debían, cuánto han abonado y cuánto les queda pendiente.</p>
-        <table>
-          <thead><tr><th>Cliente</th><th>Fecha</th><th>Debía</th><th>Abonado</th><th>Pendiente</th><th>Estado</th></tr></thead>
-          <tbody id="credits-invoice-table-body"></tbody>
         </table>
       </div>
     </section>
@@ -1382,37 +1377,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       if (data) {
         creditsSnapshot = data;
         renderCustomersTable();
-        renderCreditsInvoiceTable();
         calculateFinancialDashboard();
       }
-    }
-
-    // Muestra en Facturas cada venta a crédito: cuánto debía, cuánto ha abonado y cuánto queda pendiente
-    function renderCreditsInvoiceTable() {
-      const tbody = document.getElementById('credits-invoice-table-body');
-      if (!tbody) return;
-      tbody.innerHTML = '';
-
-      creditsSnapshot
-        .slice()
-        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-        .forEach(cr => {
-          const customer = customersSnapshot.find(c => c.id === cr.customer_id);
-          const owed = parseFloat(cr.amount);
-          const paid = parseFloat(cr.amount_paid);
-          const pending = owed - paid;
-
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${customer?.name || 'Cliente'}</td>
-            <td>${new Date(cr.created_at).toLocaleDateString()}</td>
-            <td class="font-numeric">$${owed.toFixed(2)}</td>
-            <td class="font-numeric">$${paid.toFixed(2)}</td>
-            <td class="font-numeric" style="color: ${pending > 0 ? 'var(--accent-expense)' : 'var(--accent-profit)'}">$${pending.toFixed(2)}</td>
-            <td><span class="badge-status status-${cr.status}">${cr.status.toUpperCase()}</span></td>
-          `;
-          tbody.appendChild(tr);
-        });
     }
 
     function renderCustomersTable() {
@@ -1438,6 +1404,20 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       });
     }
 
+    // Formatea una fecha "YYYY-MM-DD" (sin hora) evitando el corrimiento de zona horaria
+    function formatDateOnly(dateStr) {
+      if (!dateStr) return '—';
+      const [y, m, d] = dateStr.split('-').map(Number);
+      return new Date(y, m - 1, d).toLocaleDateString();
+    }
+
+    // true si hoy ya pasó la fecha límite (pagar el mismo día cuenta como a tiempo)
+    function isPastDueDate(dueDateStr) {
+      const [y, m, d] = dueDateStr.split('-').map(Number);
+      const due = new Date(y, m - 1, d, 23, 59, 59);
+      return new Date() > due;
+    }
+
     function openCustomerAccountModal(customerId) {
       const customer = customersSnapshot.find(c => c.id === customerId);
       if (!customer) return;
@@ -1461,6 +1441,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td>${new Date(cr.created_at).toLocaleDateString()}</td>
+          <td>${formatDateOnly(cr.due_date)}</td>
           <td class="font-numeric">$${parseFloat(cr.amount).toFixed(2)}</td>
           <td class="font-numeric">$${parseFloat(cr.amount_paid).toFixed(2)}</td>
           <td><span class="badge-status status-${cr.status}">${cr.status.toUpperCase()}</span></td>
@@ -1470,14 +1451,16 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (cr.status !== 'pagado') {
           const opt = document.createElement('option');
           opt.value = cr.id;
-          opt.textContent = `Crédito ${new Date(cr.created_at).toLocaleDateString()} - Pendiente: $${(parseFloat(cr.amount) - parseFloat(cr.amount_paid)).toFixed(2)}`;
+          const lateTag = (cr.due_date && !cr.late_fee_applied && isPastDueDate(cr.due_date)) ? ' - ⚠️ Vencido (+10% mora)' : '';
+          opt.textContent = `Crédito ${new Date(cr.created_at).toLocaleDateString()} - Pendiente: $${(parseFloat(cr.amount) - parseFloat(cr.amount_paid)).toFixed(2)}${lateTag}`;
           creditSelect.appendChild(opt);
         }
       });
 
       document.getElementById('modal-customer-account').classList.remove('hidden');
 
-      // Procesar Abono
+      // Procesar Abono: se registra como venta y genera su propia factura;
+      // si se paga después de la fecha límite, se aplica 10% de interés por mora.
       document.getElementById('payment-form').onsubmit = async (e) => {
         e.preventDefault();
         const creditId = creditSelect.value;
@@ -1487,23 +1470,56 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (!targetCredit || amountToPay <= 0) return alert("Monto o crédito inválido.");
 
         const currentPaid = parseFloat(targetCredit.amount_paid);
-        const totalAmount = parseFloat(targetCredit.amount);
-        const newPaid = currentPaid + amountToPay;
+        let totalAmount = parseFloat(targetCredit.amount);
 
+        const isLate = !!(targetCredit.due_date && !targetCredit.late_fee_applied && isPastDueDate(targetCredit.due_date));
+        let interestAmount = 0;
+        if (isLate) {
+          interestAmount = (totalAmount - currentPaid) * 0.10;
+          totalAmount += interestAmount;
+        }
+
+        const newPaid = currentPaid + amountToPay;
         let newStatus = 'parcial';
         if (newPaid >= totalAmount) newStatus = 'pagado';
 
-        const { error } = await supabase.from('customer_credits').update({
-          amount_paid: newPaid,
-          status: newStatus
-        }).eq('id', creditId);
+        const creditUpdates = { amount: totalAmount, amount_paid: newPaid, status: newStatus };
+        if (isLate) creditUpdates.late_fee_applied = true;
 
-        if (error) alert("Error al registrar abono: " + error.message);
-        else {
+        const { error } = await supabase.from('customer_credits').update(creditUpdates).eq('id', creditId);
+        if (error) return alert("Error al registrar abono: " + error.message);
+
+        // El abono se suma a Ventas y genera automáticamente su factura
+        const { data: saleData, error: saleErr } = await supabase.from('sales').insert([{
+          business_id: currentBusinessId,
+          items: [{
+            name: `Abono a crédito - ${customer.name}${isLate ? ' (incl. recargo por mora 10%)' : ''}`,
+            qty: 1, price: amountToPay, subtotal: amountToPay
+          }],
+          total: amountToPay,
+          profit: interestAmount,
+          payment_method: 'Abono Crédito'
+        }]).select().single();
+
+        let invData = null, invErr = null;
+        if (!saleErr) {
+          salesHistory.unshift(saleData);
+          ({ data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId));
+        }
+
+        document.getElementById('payment-amount').value = '';
+        await loadCredits();
+        await loadInvoicesList();
+        openCustomerAccountModal(customerId);
+
+        if (isLate) alert(`Pago recibido después de la fecha límite: se aplicó un recargo por mora del 10% ($${interestAmount.toFixed(2)}).`);
+
+        if (saleErr || invErr) {
+          alert("Abono registrado, pero hubo un error generando su venta/factura: " + (saleErr?.message || invErr?.message));
+        } else if (invData) {
+          openInvoiceModal(invData);
+        } else {
           alert("Abono registrado correctamente.");
-          document.getElementById('payment-amount').value = '';
-          await loadCredits();
-          openCustomerAccountModal(customerId);
         }
       };
     }
@@ -1527,9 +1543,11 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       if (e.target.value === 'Crédito') {
         container.classList.add('expanded');
         document.getElementById('sale-customer-select').required = true;
+        document.getElementById('sale-credit-due-date').required = true;
       } else {
         container.classList.remove('expanded');
         document.getElementById('sale-customer-select').required = false;
+        document.getElementById('sale-credit-due-date').required = false;
       }
     });
 
@@ -1565,9 +1583,13 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
         const paymentMethod = document.getElementById('sale-payment-method').value;
         const customerId = document.getElementById('sale-customer-select').value;
+        const creditDueDate = document.getElementById('sale-credit-due-date').value;
 
         if (paymentMethod === 'Crédito' && !customerId) {
           return alert("Debe seleccionar un cliente obligatoriamente para procesar ventas a crédito.");
+        }
+        if (paymentMethod === 'Crédito' && !creditDueDate) {
+          return alert("Debe establecer una fecha límite de pago para ventas a crédito.");
         }
 
         const totalAmount = cart.reduce((acc, i) => acc + i.subtotal, 0);
@@ -1590,7 +1612,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
               sale_id: saleData.id,
               amount: totalAmount,
               amount_paid: 0,
-              status: 'pendiente'
+              status: 'pendiente',
+              due_date: creditDueDate,
+              late_fee_applied: false
             }]);
           }
 
@@ -1608,6 +1632,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
 cart = [];
 renderCart();
+document.getElementById('sale-credit-due-date').value = '';
 await loadCredits();
 await logActivity(`Registró una venta por $${totalAmount.toFixed(2)} (${paymentMethod})`);
 
