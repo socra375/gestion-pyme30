@@ -144,6 +144,7 @@
     }
 
     .smooth-collapse.expanded { max-height: 120px; opacity: 1; margin-top: 0.75rem; }
+    #credit-customer-container.expanded { max-height: 220px; }
 
     .auth-exit { animation: fadeOutSlide 0.4s cubic-bezier(0.4, 0, 0.2, 1) forwards; }
     @keyframes fadeOutSlide { to { opacity: 0; transform: translateY(-20px); } }
@@ -549,9 +550,9 @@
         <div id="credit-customer-container" class="smooth-collapse">
           <label style="color: var(--accent-recommend); font-weight: bold;">Cliente a Fiar (Obligatorio)</label>
           <select id="sale-customer-select"></select>
-          <label style="color: var(--accent-recommend); font-weight: bold;">Fecha Límite de Pago (Obligatorio)</label>
+          <label style="color: var(--accent-recommend); font-weight: bold;">Fecha Límite de Pago (Opcional)</label>
           <input type="date" id="sale-credit-due-date">
-          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Si el cliente paga después de esta fecha, se le sumará automáticamente un 10% de interés por mora.</p>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Si la estableces y el cliente paga después de esa fecha, se le sumará automáticamente un 10% de interés por mora.</p>
         </div>
         
         <button id="btn-process-sale" class="btn-primary" style="margin-top: 1rem; padding: 1rem; font-size: 1.1rem;">Completar Venta</button>
@@ -1543,11 +1544,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       if (e.target.value === 'Crédito') {
         container.classList.add('expanded');
         document.getElementById('sale-customer-select').required = true;
-        document.getElementById('sale-credit-due-date').required = true;
       } else {
         container.classList.remove('expanded');
         document.getElementById('sale-customer-select').required = false;
-        document.getElementById('sale-credit-due-date').required = false;
       }
     });
 
@@ -1588,9 +1587,6 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         if (paymentMethod === 'Crédito' && !customerId) {
           return alert("Debe seleccionar un cliente obligatoriamente para procesar ventas a crédito.");
         }
-        if (paymentMethod === 'Crédito' && !creditDueDate) {
-          return alert("Debe establecer una fecha límite de pago para ventas a crédito.");
-        }
 
         const totalAmount = cart.reduce((acc, i) => acc + i.subtotal, 0);
         const totalCost = cart.reduce((acc, i) => acc + (i.cost * i.qty), 0);
@@ -1613,7 +1609,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
               amount: totalAmount,
               amount_paid: 0,
               status: 'pendiente',
-              due_date: creditDueDate,
+              due_date: creditDueDate || null,
               late_fee_applied: false
             }]);
           }
