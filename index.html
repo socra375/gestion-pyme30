@@ -930,6 +930,7 @@
     let currentBusinessData = null;
     let inventorySnapshot = [];
     let salesHistory = [];
+    let invoicesSnapshot = [];
     let customersSnapshot = [];
     let creditsSnapshot = [];
     let cart = [];
@@ -1821,7 +1822,7 @@ if (paymentMethod === 'Crédito') {
 
       // Tarjetas informativas adicionales del Dashboard (no deben interrumpir el resto si fallan)
       try { renderOverdueCredits(); } catch (e) { console.error('renderOverdueCredits:', e); }
-      try { renderTopProducts(filteredSales); } catch (e) { console.error('renderTopProducts:', e); }
+      try { renderTopProducts(filterInvoicesByPeriod(invoicesSnapshot, activePeriod)); } catch (e) { console.error('renderTopProducts:', e); }
       try { renderPaymentBreakdown(filteredSales); } catch (e) { console.error('renderPaymentBreakdown:', e); }
 
       renderCircularDashboard(grossSales, netProfit, expenses);
@@ -1844,14 +1845,16 @@ if (paymentMethod === 'Crédito') {
       }).join('');
     }
 
-    // Top 5 productos más vendidos (por cantidad) dentro del período activo del Dashboard
-    function renderTopProducts(sales) {
+    // Top 5 productos más vendidos (por cantidad), calculado a partir de las FACTURAS
+    // (no de las ventas crudas) dentro del período activo del Dashboard. Así solo cuenta
+    // lo realmente facturado/cobrado, igual que la Ganancia Neta.
+    function renderTopProducts(invoices) {
       const list = document.getElementById('dash-top-products-list');
       if (!list) return;
 
       const totals = {};
-      sales.forEach(s => {
-        (s.items || []).forEach(item => {
+      invoices.forEach(inv => {
+        (inv.items || []).forEach(item => {
           if (!item.id) return; // ignora ítems que no son productos del inventario (ej. abonos a crédito)
           const key = item.name || 'Producto';
           if (!totals[key]) totals[key] = { qty: 0, revenue: 0 };
@@ -2151,6 +2154,9 @@ if (paymentMethod === 'Crédito') {
 
     async function loadInvoicesList() {
       const { data } = await supabase.from('invoices').select('*').eq('business_id', currentBusinessId).order('created_at', { ascending: false });
+      invoicesSnapshot = data || [];
+      try { renderTopProducts(filterInvoicesByPeriod(invoicesSnapshot, activePeriod)); } catch (e) { console.error('renderTopProducts:', e); }
+
       const tbody = document.getElementById('invoices-table-body');
       if (!tbody) return;
       tbody.innerHTML = '';
@@ -2172,6 +2178,18 @@ if (paymentMethod === 'Crédito') {
           };
         });
       }
+    }
+
+    // Filtra facturas por el período activo del Dashboard (Hoy/Semana/Mes), igual que las ventas
+    function filterInvoicesByPeriod(invoices, period) {
+      const now = new Date();
+      return invoices.filter(inv => {
+        const d = new Date(inv.created_at);
+        if (period === 'today') return d.toDateString() === now.toDateString();
+        if (period === 'week') return Math.ceil(Math.abs(now - d) / (1000 * 60 * 60 * 24)) <= 7;
+        if (period === 'month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        return true;
+      });
     }
 
     // -------------------------------------------------------------
