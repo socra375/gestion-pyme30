@@ -512,6 +512,11 @@
         <input type="hidden" id="prod-id">
         <label>Nombre del Producto</label>
         <input type="text" id="prod-name" required>
+        <label>SKU / Código (Opcional)</label>
+        <input type="text" id="prod-sku" placeholder="Ej: BEB-001">
+        <label>Categoría (Opcional)</label>
+        <input type="text" id="prod-category" list="category-list" placeholder="Ej: Bebidas">
+        <datalist id="category-list"></datalist>
         <label>Precio Compra ($)</label>
         <input type="number" step="0.01" id="prod-cost" placeholder="0.00">
         <label>Precio Venta ($)</label>
@@ -528,7 +533,7 @@
       <div class="table-responsive">
         <table>
           <thead>
-            <tr><th>Producto</th><th>Precio</th><th>Stock</th><th>Acción</th></tr>
+            <tr><th>Producto</th><th>Categoría</th><th>Precio</th><th>Stock</th><th>Acción</th></tr>
           </thead>
           <tbody id="inventory-table-body"></tbody>
         </table>
@@ -2313,6 +2318,8 @@ if (paymentMethod === 'Crédito') {
         const payload = {
           business_id: currentBusinessId,
           name: document.getElementById('prod-name').value,
+          sku: document.getElementById('prod-sku').value.trim() || null,
+          category: document.getElementById('prod-category').value.trim() || 'General',
           purchase_price: parseFloat(document.getElementById('prod-cost').value) || 0,
           sale_price: parseFloat(document.getElementById('prod-price').value),
           stock: parseInt(document.getElementById('prod-stock').value),
@@ -2334,7 +2341,8 @@ function renderInventoryTable(products) {
   products.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${p.name}</td>
+      <td>${p.name}${p.sku ? `<br><span style="font-size:0.75rem; color: var(--text-muted);">SKU: ${p.sku}</span>` : ''}</td>
+      <td>${p.category || 'General'}</td>
       <td class="font-numeric">$${parseFloat(p.sale_price).toFixed(2)}</td>
       <td>${p.stock}</td>
       <td><button class="btn-edit" data-id="${p.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Editar</button></td>
@@ -2342,12 +2350,21 @@ function renderInventoryTable(products) {
     tbody.appendChild(tr);
   });
 
+  // Sugerencias de categoría (autocompletar) a partir de las ya usadas en el inventario
+  const categoryList = document.getElementById('category-list');
+  if (categoryList) {
+    const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
+    categoryList.innerHTML = categories.map(c => `<option value="${c}"></option>`).join('');
+  }
+
   tbody.querySelectorAll('.btn-edit').forEach(btn => {
     btn.onclick = (e) => {
       const prod = inventorySnapshot.find(p => p.id === e.target.dataset.id);
       if (!prod) return;
       document.getElementById('prod-id').value = prod.id;
       document.getElementById('prod-name').value = prod.name;
+      document.getElementById('prod-sku').value = prod.sku || '';
+      document.getElementById('prod-category').value = prod.category || '';
       document.getElementById('prod-cost').value = prod.purchase_price;
       document.getElementById('prod-price').value = prod.sale_price;
       document.getElementById('prod-stock').value = prod.stock;
