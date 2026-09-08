@@ -1766,15 +1766,26 @@ if (paymentMethod === 'Crédito') {
         tbody.querySelectorAll('.input-employee-name').forEach(input => {
           input.addEventListener('change', async (e) => {
             const newName = e.target.value.trim();
+            const oldName = e.target.defaultValue;
             await supabase.from('business_members').update({ employee_name: newName }).eq('id', e.target.dataset.id);
-            await logActivity(`Cambió el nombre de un empleado a "${newName}"`);
+            await logActivity(`Cambió el nombre de un empleado a "${newName}"`, {
+              entityType: 'employee', entityId: e.target.dataset.id,
+              oldValues: { Nombre: oldName || '(sin nombre)' }, newValues: { Nombre: newName }
+            });
+            e.target.defaultValue = newName;
           });
         });
 
         tbody.querySelectorAll('.input-role-title').forEach(input => {
           input.addEventListener('change', async (e) => {
-            await supabase.from('business_members').update({ role_title: e.target.value }).eq('id', e.target.dataset.id);
-            await logActivity(`Actualizó el cargo de un empleado a "${e.target.value}"`);
+            const newTitle = e.target.value;
+            const oldTitle = e.target.defaultValue;
+            await supabase.from('business_members').update({ role_title: newTitle }).eq('id', e.target.dataset.id);
+            await logActivity(`Actualizó el cargo de un empleado a "${newTitle}"`, {
+              entityType: 'employee', entityId: e.target.dataset.id,
+              oldValues: { Cargo: oldTitle || '(sin cargo)' }, newValues: { Cargo: newTitle }
+            });
+            e.target.defaultValue = newTitle;
           });
         });
 
@@ -2007,14 +2018,33 @@ if (paymentMethod === 'Crédito') {
     // -------------------------------------------------------------
     // 8b. REGISTRO DE ACTIVIDAD (BITÁCORA)
     // -------------------------------------------------------------
-    async function logActivity(action) {
+    // details opcional: { entityType, entityId, oldValues, newValues } para dejar constancia
+    // de qué cambió exactamente (ej. precio de un producto antes/después).
+    async function logActivity(action, details = {}) {
       if (!currentBusinessId) return;
-      const { data: { user } } = await supabase.auth.getUser();
-      await supabase.from('activity_log').insert([{
-        business_id: currentBusinessId,
-        user_id: user ? user.id : null,
-        action: action
-      }]);
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        await supabase.from('activity_log').insert([{
+          business_id: currentBusinessId,
+          user_name: user?.email || 'Desconocido',
+          action: action,
+          entity_type: details.entityType || null,
+          entity_id: details.entityId || null,
+          old_values: details.oldValues || null,
+          new_values: details.newValues || null
+        }]);
+      } catch (e) {
+        console.error('logActivity:', e);
+      }
+    }
+
+    // Arma un texto compacto "campo: antes → después" para los campos que cambiaron
+    function describeChanges(oldValues, newValues) {
+      if (!oldValues || !newValues) return '';
+      const changes = Object.keys(newValues)
+        .filter(k => String(oldValues[k] ?? '') !== String(newValues[k] ?? ''))
+        .map(k => `${k}: ${oldValues[k] ?? '—'} → ${newValues[k] ?? '—'}`);
+      return changes.length ? ` (${changes.join(', ')})` : '';
     }
 
     async function loadActivityLog() {
@@ -2024,7 +2054,7 @@ if (paymentMethod === 'Crédito') {
       if (data) {
         data.forEach(log => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${log.user_id ? log.user_id.substring(0,8) : 'Sistema'}</td><td>${log.action}</td><td>${new Date(log.created_at).toLocaleString()}</td>`;
+          tr.innerHTML = `<td>${log.user_name || 'Sistema'}</td><td>${log.action}${describeChanges(log.old_values, log.new_values)}</td><td>${new Date(log.created_at).toLocaleString()}</td>`;
           tbody.appendChild(tr);
         });
       }
@@ -2099,6 +2129,7 @@ if (paymentMethod === 'Crédito') {
         updated_at: new Date()
       };
 
+      const oldData = currentBusinessData || {};
       const { error } = await supabase.from('businesses').update(updates).eq('id', currentBusinessId);
       if (error) return alert("Error: " + error.message);
 
@@ -2106,7 +2137,11 @@ if (paymentMethod === 'Crédito') {
       logoMarkedForRemoval = false;
       document.getElementById('business-display-name').textContent = updates.name;
       applyLogoToHeader();
-      await logActivity('Actualizó los datos del negocio');
+      await logActivity('Actualizó los datos del negocio', {
+        entityType: 'business', entityId: currentBusinessId,
+        oldValues: { Nombre: oldData.name, 'Nombre Legal': oldData.legal_name, Teléfono: oldData.phone, Dirección: oldData.address },
+        newValues: { Nombre: updates.name, 'Nombre Legal': updates.legal_name, Teléfono: updates.phone, Dirección: updates.address }
+      });
       alert("Datos del negocio guardados.");
     });
 
@@ -2414,7 +2449,18 @@ if (paymentMethod === 'Crédito') {
           }
         }
 
-        await logActivity(id ? `Editó el producto "${payload.name}"` : `Creó el producto "${payload.name}"`);
+        if (id) {
+          await logActivity(`Editó el producto "${payload.name}"`, {
+            entityType: 'product',
+            entityId: id,
+            oldValues: existingProd ? {
+              'Precio Compra': existingProd.purchase_price, 'Precio Venta': existingProd.sale_price, Stock: existingProd.stock
+            } : null,
+            newValues: { 'Precio Compra': payload.purchase_price, 'Precio Venta': payload.sale_price, Stock: payload.stock }
+          });
+        } else {
+          await logActivity(`Creó el producto "${payload.name}"`, { entityType: 'product' });
+        }
         form.classList.add('hidden');
         await loadProducts();
       };
