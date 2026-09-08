@@ -1498,7 +1498,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             qty: 1, price: amountToPay, subtotal: amountToPay
           }],
           total: amountToPay,
-          profit: interestAmount,
+          profit: amountToPay + interestAmount,
           payment_method: 'Abono Crédito'
         }]).select().single();
 
@@ -1623,8 +1623,12 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
             }
           }
 
-          // Generar automáticamente la factura de la venta, sin importar el método de pago
-          const { data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId);
+          // Generar automáticamente la factura de la venta, EXCEPTO en ventas a crédito:
+          // esas solo quedan registradas como deuda: la factura se genera cuando el cliente abone.
+          let invData = null, invErr = null;
+          if (paymentMethod !== 'Crédito') {
+            ({ data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId));
+          }
 
 cart = [];
 renderCart();
@@ -1637,7 +1641,9 @@ salesHistory.unshift(saleData);
 calculateFinancialDashboard();
 await loadInvoicesList();
 
-if (invErr) {
+if (paymentMethod === 'Crédito') {
+  alert("Venta a crédito registrada en la cuenta del cliente. Se generará la factura cuando pague.");
+} else if (invErr) {
   alert(`Venta completada con éxito, pero hubo un error generando la factura: ${invErr.message}`);
 } else {
   await logActivity(`Generó automáticamente la factura ${invData.invoice_number}`);
