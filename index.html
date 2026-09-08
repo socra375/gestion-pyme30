@@ -1602,7 +1602,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
           // Si es venta a crédito -> Insertar en customer_credits
           if (paymentMethod === 'Crédito') {
-            await supabase.from('customer_credits').insert([{
+            const { error: creditErr } = await supabase.from('customer_credits').insert([{
               business_id: currentBusinessId,
               customer_id: customerId,
               sale_id: saleData.id,
@@ -1612,6 +1612,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
               due_date: creditDueDate || null,
               late_fee_applied: false
             }]);
+            if (creditErr) throw new Error("No se pudo registrar la deuda del cliente: " + creditErr.message);
           }
 
           // Descontar Stock
