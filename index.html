@@ -1648,39 +1648,20 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         const totalCost = cart.reduce((acc, i) => acc + (i.cost * i.qty), 0);
 
         try {
-          const { data: saleData, error: saleErr } = await supabase.from('sales').insert([{
-            business_id: currentBusinessId, items: cart,
-            total: totalAmount, profit: totalAmount - totalCost,
-            payment_method: paymentMethod
-          }]).select().single();
+          // Venta atómica: valida stock, crea la venta, registra la deuda (si aplica) y
+          // descuenta el inventario dentro de una sola transacción en el servidor, para
+          // evitar condiciones de carrera y escrituras parciales si algo falla a mitad de camino.
+          const { data: saleData, error: saleErr } = await supabase.rpc('process_sale', {
+            p_business_id: currentBusinessId,
+            p_items: cart,
+            p_payment_method: paymentMethod,
+            p_customer_id: paymentMethod === 'Crédito' ? customerId : null,
+            p_credit_due_date: paymentMethod === 'Crédito' ? (creditDueDate || null) : null
+          });
 
           if (saleErr) throw saleErr;
 
-          // Si es venta a crédito -> Insertar en customer_credits
-          if (paymentMethod === 'Crédito') {
-            const { error: creditErr } = await supabase.from('customer_credits').insert([{
-              business_id: currentBusinessId,
-              customer_id: customerId,
-              sale_id: saleData.id,
-              amount: totalAmount,
-              amount_paid: 0,
-              status: 'pendiente',
-              due_date: creditDueDate || null,
-              late_fee_applied: false
-            }]);
-            if (creditErr) throw new Error("No se pudo registrar la deuda del cliente: " + creditErr.message);
-          }
-
-          // Descontar Stock
-          for (const item of cart) {
-            const currentProd = inventorySnapshot.find(p => p.id === item.id);
-            if (currentProd) {
-              const newStock = currentProd.stock - item.qty;
-              await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
-              await logInventoryMovement(item.id, item.name, 'salida', -item.qty, currentProd.stock, newStock, 'Venta');
-              populateSalesSelect(inventorySnapshot);
-            }
-          }
+          populateSalesSelect(inventorySnapshot);
 
           // Generar automáticamente la factura de la venta, EXCEPTO en ventas a crédito:
           // esas solo quedan registradas como deuda: la factura se genera cuando el cliente abone.
