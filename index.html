@@ -505,7 +505,10 @@
     <!-- MÓDULO: INVENTARIO -->
     <section id="sec-inventory" class="view-module hidden">
       <h2>Inventario</h2>
-      <button id="btn-show-add-product" class="btn-primary" style="margin-top: 0.5rem;">+ Nuevo Producto</button>
+      <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+        <button id="btn-show-add-product" class="btn-primary" style="margin: 0;">+ Nuevo Producto</button>
+        <button id="btn-show-inventory-history" style="margin: 0;">📜 Historial</button>
+      </div>
 
       <form id="product-form" class="card hidden">
         <h3 id="product-form-title">Guardar Producto</h3>
@@ -608,6 +611,21 @@
         </table>
       </div>
     </section>
+
+    <!-- MODAL HISTORIAL DE MOVIMIENTOS DE INVENTARIO -->
+    <div id="modal-inventory-history" class="card hidden" style="position: fixed; top: 5%; left: 2.5%; right: 2.5%; bottom: 5%; z-index: 250; overflow-y: auto;">
+      <div style="display: flex; justify-content: space-between; align-items: center;">
+        <h3>Historial de Movimientos</h3>
+        <button id="btn-close-inventory-history" style="width: auto; margin:0; padding: 0.3rem 0.6rem;">Cerrar</button>
+      </div>
+      <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.25rem;">Últimos 100 movimientos: entradas, salidas por venta y ajustes manuales.</p>
+      <div class="table-responsive" style="margin-top: 0.75rem;">
+        <table>
+          <thead><tr><th>Fecha</th><th>Producto</th><th>Tipo</th><th>Cant.</th><th>Antes → Después</th><th>Motivo</th></tr></thead>
+          <tbody id="inventory-history-table-body"></tbody>
+        </table>
+      </div>
+    </div>
 
     <!-- MODAL DETALLE DE CUENTA CLIENTE -->
     <div id="modal-customer-account" class="card hidden" style="position: fixed; top: 5%; left: 2.5%; right: 2.5%; bottom: 5%; z-index: 250; overflow-y: auto;">
@@ -1657,7 +1675,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
           for (const item of cart) {
             const currentProd = inventorySnapshot.find(p => p.id === item.id);
             if (currentProd) {
-              await supabase.from('products').update({ stock: currentProd.stock - item.qty }).eq('id', item.id);
+              const newStock = currentProd.stock - item.qty;
+              await supabase.from('products').update({ stock: newStock }).eq('id', item.id);
+              await logInventoryMovement(item.id, item.name, 'salida', -item.qty, currentProd.stock, newStock, 'Venta');
               populateSalesSelect(inventorySnapshot);
             }
           }
@@ -2310,10 +2330,50 @@ if (paymentMethod === 'Crédito') {
     // -------------------------------------------------------------
     // 9. INVENTARIO & REPORTES AUXILIARES
     // -------------------------------------------------------------
+    // Registra un movimiento de inventario (entrada/salida/ajuste). No debe interrumpir
+    // la operación principal (venta o guardado de producto) si llega a fallar.
+    async function logInventoryMovement(productId, productName, type, quantity, stockBefore, stockAfter, reason) {
+      try {
+        await supabase.from('inventory_movements').insert([{
+          business_id: currentBusinessId,
+          product_id: productId,
+          product_name: productName,
+          type, quantity, stock_before: stockBefore, stock_after: stockAfter, reason
+        }]);
+      } catch (e) {
+        console.error('logInventoryMovement:', e);
+      }
+    }
+
     async function initInventory() {
       const form = document.getElementById('product-form');
       document.getElementById('btn-show-add-product').onclick = () => { form.reset(); document.getElementById('prod-id').value = ''; form.classList.remove('hidden'); };
       document.getElementById('btn-cancel-product').onclick = () => form.classList.add('hidden');
+
+      document.getElementById('btn-show-inventory-history').onclick = async () => {
+        const { data } = await supabase.from('inventory_movements').select('*')
+          .eq('business_id', currentBusinessId).order('created_at', { ascending: false }).limit(100);
+        const tbody = document.getElementById('inventory-history-table-body');
+        tbody.innerHTML = '';
+        const typeLabel = { entrada: '🟢 Entrada', salida: '🔴 Salida', ajuste: '🟡 Ajuste' };
+        (data || []).forEach(m => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${new Date(m.created_at).toLocaleString()}</td>
+            <td>${m.product_name}</td>
+            <td>${typeLabel[m.type] || m.type}</td>
+            <td class="font-numeric">${m.quantity > 0 ? '+' : ''}${m.quantity}</td>
+            <td>${m.stock_before} → ${m.stock_after}</td>
+            <td>${m.reason || '—'}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        if ((data || []).length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="color: var(--text-muted);">Sin movimientos registrados todavía.</td></tr>';
+        }
+        document.getElementById('modal-inventory-history').classList.remove('hidden');
+      };
+      document.getElementById('btn-close-inventory-history').onclick = () => document.getElementById('modal-inventory-history').classList.add('hidden');
 
       const loadProducts = async () => {
         const { data } = await supabase.from('products').select('*').eq('business_id', currentBusinessId);
@@ -2329,6 +2389,7 @@ if (paymentMethod === 'Crédito') {
       form.onsubmit = async (e) => {
         e.preventDefault();
         const id = document.getElementById('prod-id').value;
+        const existingProd = id ? inventorySnapshot.find(p => p.id === id) : null;
         const payload = {
           business_id: currentBusinessId,
           name: document.getElementById('prod-name').value,
@@ -2340,8 +2401,18 @@ if (paymentMethod === 'Crédito') {
           min_stock: parseInt(document.getElementById('prod-min').value)
         };
 
-        if (id) await supabase.from('products').update(payload).eq('id', id);
-        else await supabase.from('products').insert([payload]);
+        if (id) {
+          await supabase.from('products').update(payload).eq('id', id);
+          const stockBefore = existingProd ? existingProd.stock : 0;
+          if (payload.stock !== stockBefore) {
+            await logInventoryMovement(id, payload.name, 'ajuste', payload.stock - stockBefore, stockBefore, payload.stock, 'Ajuste manual desde edición de producto');
+          }
+        } else {
+          const { data: newProd } = await supabase.from('products').insert([payload]).select().single();
+          if (newProd) {
+            await logInventoryMovement(newProd.id, payload.name, 'entrada', payload.stock, 0, payload.stock, 'Registro inicial de producto');
+          }
+        }
 
         await logActivity(id ? `Editó el producto "${payload.name}"` : `Creó el producto "${payload.name}"`);
         form.classList.add('hidden');
