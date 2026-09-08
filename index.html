@@ -1612,6 +1612,20 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
           return alert("Debe seleccionar un cliente obligatoriamente para procesar ventas a crédito.");
         }
 
+        // Validar stock disponible de todo el carrito antes de registrar la venta
+        for (const item of cart) {
+          const currentProd = inventorySnapshot.find(p => p.id === item.id);
+          if (!currentProd) {
+            return alert(`El producto "${item.name}" ya no está disponible en el inventario.`);
+          }
+          if (currentProd.stock <= 0) {
+            return alert(`El producto "${item.name}" está agotado.`);
+          }
+          if (item.qty > currentProd.stock) {
+            return alert(`Stock insuficiente para "${item.name}".\n\nDisponible: ${currentProd.stock}\nSolicitado: ${item.qty}`);
+          }
+        }
+
         const totalAmount = cart.reduce((acc, i) => acc + i.subtotal, 0);
         const totalCost = cart.reduce((acc, i) => acc + (i.cost * i.qty), 0);
 
