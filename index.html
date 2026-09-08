@@ -700,9 +700,10 @@
 
       <div class="card">
         <h3>Lista de Empleados Actuales</h3>
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-bottom: 0.75rem;">Por defecto un empleado solo ve Ventas, Inventario y Clientes. Activa "Ver Dashboard" o "Ver Facturas" para darle acceso adicional a un empleado en particular. El cambio se aplica la próxima vez que ese empleado inicie sesión.</p>
         <div class="table-responsive">
           <table>
-            <thead><tr><th>Nombre</th><th>Cargo</th><th>Rol Permisos</th><th>Agregado</th><th>Acción</th></tr></thead>
+            <thead><tr><th>Nombre</th><th>Cargo</th><th>Rol</th><th>Ver Dashboard</th><th>Ver Facturas</th><th>Agregado</th><th>Acción</th></tr></thead>
             <tbody id="employees-table-body"></tbody>
           </table>
         </div>
@@ -950,6 +951,7 @@
     // -------------------------------------------------------------
     let currentBusinessId = null;
     let currentUserRole = 'admin'; // 'admin' | 'employee'
+    let currentUserPermissions = {}; // permisos adicionales otorgados a un empleado (ver setupRoleInterface)
     let currentBusinessData = null;
     let inventorySnapshot = [];
     let salesHistory = [];
@@ -1111,7 +1113,7 @@
 
       if (e.shiftKey && !e.ctrlKey && !e.altKey && key === 'f') {
         e.preventDefault();
-        if (currentUserRole === 'admin') showModuleSection('sec-reports');
+        if (currentUserRole === 'admin' || currentUserPermissions.ver_reportes) showModuleSection('sec-reports');
         pendingChordKey = null;
         return;
       }
@@ -1249,6 +1251,7 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
           if (memberData) {
             currentBusinessId = memberData.business_id;
             currentUserRole = memberData.role;
+            currentUserPermissions = memberData.permissions || {};
           } else {
             currentBusinessId = userId;
             currentUserRole = 'admin';
@@ -1358,6 +1361,20 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         document.querySelectorAll('.nav-admin-only').forEach(el => el.classList.add('hidden'));
         document.getElementById('app-nav').classList.add('hidden'); // sin botones admin visibles
         document.getElementById('sec-sales').classList.remove('hidden');
+
+        // Fase 6: permisos granulares — el admin puede otorgar acceso adicional a un empleado
+        // puntual a secciones que normalmente son solo-admin. Sin nada otorgado, el comportamiento
+        // es exactamente el mismo de siempre (todo lo anterior queda oculto).
+        if (currentUserPermissions.ver_dashboard) {
+          // "Empleados" queda con su clase nav-admin-only intacta (oculta): este permiso
+          // solo otorga el Dashboard, nunca la gestión de otros empleados.
+          document.getElementById('app-nav').classList.remove('hidden');
+          document.querySelector('.nav-item[data-target="sec-dashboard"]').classList.remove('hidden');
+        }
+        if (currentUserPermissions.ver_reportes) {
+          const reportsLink = document.querySelector('.menu-link-btn[data-target="sec-reports"]');
+          if (reportsLink) reportsLink.classList.remove('hidden');
+        }
       } else {
         document.querySelectorAll('.nav-admin-only').forEach(el => el.classList.remove('hidden'));
         document.getElementById('app-nav').classList.remove('hidden');
@@ -1733,11 +1750,14 @@ if (paymentMethod === 'Crédito') {
         const tbody = document.getElementById('employees-table-body');
         tbody.innerHTML = '';
         data.forEach(m => {
+          const perms = m.permissions || {};
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${m.employee_name || ''}" placeholder="Nombre" style="margin:0; padding:0.3rem;"></td>
             <td><input type="text" class="input-role-title" data-id="${m.id}" value="${m.role_title || ''}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
             <td><span class="badge-status status-pagado">Empleado</span></td>
+            <td style="text-align:center;"><input type="checkbox" class="chk-perm-dashboard" data-id="${m.id}" ${perms.ver_dashboard ? 'checked' : ''}></td>
+            <td style="text-align:center;"><input type="checkbox" class="chk-perm-reportes" data-id="${m.id}" ${perms.ver_reportes ? 'checked' : ''}></td>
             <td>${new Date(m.created_at).toLocaleDateString()}</td>
             <td><button type="button" class="btn-remove-employee btn-danger" data-id="${m.id}" data-name="${m.employee_name || 'este empleado'}" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.8rem;">Eliminar</button></td>
           `;
@@ -1767,6 +1787,32 @@ if (paymentMethod === 'Crédito') {
               oldValues: { Cargo: oldTitle || '(sin cargo)' }, newValues: { Cargo: newTitle }
             });
             e.target.defaultValue = newTitle;
+          });
+        });
+
+        const savePermission = async (id, key, value, label) => {
+          const member = data.find(m => m.id === id);
+          const newPermissions = { ...(member?.permissions || {}), [key]: value };
+          const { error } = await supabase.from('business_members').update({ permissions: newPermissions }).eq('id', id);
+          if (error) {
+            alert("Error al actualizar el permiso: " + error.message);
+            return;
+          }
+          if (member) member.permissions = newPermissions;
+          await logActivity(`${value ? 'Otorgó' : 'Quitó'} el permiso "${label}" a un empleado`, {
+            entityType: 'employee', entityId: id
+          });
+        };
+
+        tbody.querySelectorAll('.chk-perm-dashboard').forEach(chk => {
+          chk.addEventListener('change', (e) => {
+            savePermission(e.target.dataset.id, 'ver_dashboard', e.target.checked, 'Ver Dashboard');
+          });
+        });
+
+        tbody.querySelectorAll('.chk-perm-reportes').forEach(chk => {
+          chk.addEventListener('change', (e) => {
+            savePermission(e.target.dataset.id, 'ver_reportes', e.target.checked, 'Ver Facturas');
           });
         });
 
