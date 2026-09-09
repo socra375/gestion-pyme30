@@ -972,9 +972,18 @@
     const navButtons = document.querySelectorAll('.nav-item');
     const modules = document.querySelectorAll('.view-module');
 
+    // Modales/paneles superpuestos que deben cerrarse siempre que el usuario navegue
+    // a otra sección (p. ej. factura abierta desde Ventas, o cuenta de cliente
+    // abierta desde Clientes): antes se quedaban abiertos encima de la nueva sección.
+    const overlayModalIds = ['modal-invoice', 'modal-customer-account', 'modal-inventory-history', 'modal-password'];
+    function closeAllModals() {
+      overlayModalIds.forEach(id => document.getElementById(id)?.classList.add('hidden'));
+    }
+
     navButtons.forEach(btn => {
       btn.addEventListener('click', () => {
         const targetId = btn.dataset.target;
+        closeAllModals();
         modules.forEach(m => m.classList.add('hidden'));
         navButtons.forEach(b => b.classList.remove('active'));
 
@@ -1045,6 +1054,7 @@
 
     // Ícono de Configuración (header) -> abre la sección de Configuración
     document.getElementById('btn-header-settings').onclick = () => {
+      closeAllModals();
       modules.forEach(m => m.classList.add('hidden'));
       navButtons.forEach(b => b.classList.remove('active'));
       document.getElementById('sec-settings').classList.remove('hidden');
@@ -1064,6 +1074,7 @@
     function showModuleSection(id) {
       const target = document.getElementById(id);
       if (!target) return;
+      closeAllModals();
       modules.forEach(m => m.classList.add('hidden'));
       navButtons.forEach(b => b.classList.remove('active'));
       target.classList.remove('hidden');
@@ -1136,6 +1147,7 @@
 
     // Cerrar el panel lateral de Menú/Configuración (botón ✕ o clic fuera)
     function closeSettingsPanel() {
+      closeAllModals();
       document.getElementById('sec-settings').classList.add('hidden');
       closeSettingsSubpage();
       modules.forEach(m => m.classList.add('hidden'));
