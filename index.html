@@ -1013,6 +1013,7 @@
     // -------------------------------------------------------------
     const THEME_STORAGE_KEY = 'pyme_theme';
     const BG_STORAGE_KEY = 'pyme_custom_bg';
+    const PENDING_INVITE_KEY = 'pyme_pending_invite';
 
     function applyTheme(mode) {
       if (mode === 'light') {
@@ -1176,6 +1177,11 @@
       if (inviteCode) {
         const params = new URLSearchParams({ invite: inviteCode, empname: employeeName });
         redirectTo = `${baseUrl}?${params.toString()}`;
+        // Respaldo además de la URL: Google/Supabase pueden descartar el query string al
+        // completar el login (p. ej. si la URL exacta no está en la lista de Redirect URLs
+        // permitidas del proyecto), dejando al empleado sin el código al volver. Guardarlo
+        // también en este navegador permite recuperarlo aunque eso pase.
+        try { localStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ code: inviteCode, name: employeeName })); } catch (e) { /* ignorar */ }
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -1435,6 +1441,9 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
       params.set('empname', employeeName);
     }
     const redirectUrl = inviteCode ? `${baseUrl}?${params.toString()}` : baseUrl;
+    if (inviteCode) {
+      try { localStorage.setItem(PENDING_INVITE_KEY, JSON.stringify({ code: inviteCode, name: employeeName })); } catch (e) { /* ignorar */ }
+    }
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -1455,12 +1464,30 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
         const userId = session.user.id;
         if (modulesInitialized) return;
 
-        // Canjear código de invitación pendiente (viene desde la URL del link de confirmación)
-        const urlParams= new URLSearchParams(window.location.search);
-        const pendingCode = urlParams.get('invite');
-        const pendingName = urlParams.get('empname') || '';
+        // Canjear código de invitación pendiente. Se busca primero en localStorage (guardado
+        // justo antes de salir hacia Google/el correo de confirmación) porque es más
+        // confiable que la URL: Supabase puede redirigir a una URL "limpia" sin el query
+        // string si la URL exacta no está en su lista de Redirect URLs permitidas. Si no hay
+        // nada en localStorage, se revisa la URL como respaldo (flujo de correo original).
+        let pendingCode = null, pendingName = '';
+        try {
+          const stored = localStorage.getItem(PENDING_INVITE_KEY);
+          if (stored) {
+            const parsed = JSON.parse(stored);
+            pendingCode = parsed.code;
+            pendingName = parsed.name || '';
+          }
+        } catch (e) { /* ignorar */ }
+
+        if (!pendingCode) {
+          const urlParams = new URLSearchParams(window.location.search);
+          pendingCode = urlParams.get('invite');
+          pendingName = urlParams.get('empname') || '';
+        }
+
         if (pendingCode) {
           const { data: redeemedBusinessId, error: redeemError } = await supabase.rpc('redeem_invite_code', { input_code: pendingCode, input_employee_name: pendingName });
+          try { localStorage.removeItem(PENDING_INVITE_KEY); } catch (e) { /* ignorar */ }
           window.history.replaceState({}, document.title, window.location.pathname);
 
           if (redeemError) {
