@@ -403,6 +403,11 @@
         <label>Contraseña</label>
         <input type="password" id="auth-password" required>
         
+        <div id="auth-invite-banner" class="hidden" style="margin-top: 0.75rem; padding: 0.75rem; background: rgba(0, 217, 163, 0.08); border: 1px solid var(--accent-profit); border-radius: 8px; font-size: 0.85rem;">
+          ✅ Te invitaron a unirte como <strong>empleado</strong> de un negocio. Completa tus datos para registrarte — no necesitas escribir ningún código.
+          <button type="button" id="btn-clear-invite" style="width: auto; margin: 0.5rem 0 0; padding: 0.2rem 0.5rem; font-size: 0.75rem; background: transparent; border: 1px solid var(--border-subtle);">No soy yo / usar otra cuenta</button>
+        </div>
+
         <label>¿Tienes un código de invitación de tu empleador? (Opcional)</label>
         <input type="text" id="auth-invite-code" placeholder="Ej: EMP12345">
 
@@ -715,13 +720,14 @@
       <h2>Gestión de Empleados</h2>
       <div class="card" style="margin-top: 0.5rem;">
         <h3>Invitar Empleado</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">Genera un código de acceso único para registrar nuevos empleados. Válido por 7 días y de un solo uso.</p>
-        <button id="btn-generate-invite" class="btn-primary">Generar Código de Invitación</button>
-        
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">Genera un link de acceso único para registrar nuevos empleados. Al abrirlo, el código queda precargado automáticamente — no hay nada que el empleado deba copiar o recordar. Válido por 7 días y de un solo uso.</p>
+        <button id="btn-generate-invite" class="btn-primary">Generar Link de Invitación</button>
+
         <div id="invite-code-display" class="hidden" style="margin-top: 1rem; padding: 1rem; background: var(--bg-input); border: 1px dashed var(--accent-profit); text-align: center; border-radius: 8px;">
-          <span style="font-size: 0.8rem; color: var(--text-muted);">Código generado:</span>
-          <h2 id="lbl-generated-code" style="color: var(--accent-profit); letter-spacing: 2px;"></h2>
-          <button id="btn-copy-code" style="width: auto; padding: 0.3rem 0.8rem; font-size: 0.8rem;">Copiar Código</button>
+          <span style="font-size: 0.8rem; color: var(--text-muted);">Link de invitación (compártelo con tu empleado):</span>
+          <p id="lbl-generated-link" style="color: var(--accent-profit); word-break: break-all; font-size: 0.9rem; margin: 0.4rem 0;"></p>
+          <button id="btn-copy-link" class="btn-primary">Copiar Link</button>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.6rem;">Código: <strong id="lbl-generated-code"></strong> <button id="btn-copy-code" style="width: auto; margin: 0; padding: 0.15rem 0.5rem; font-size: 0.75rem;">Copiar solo el código</button></p>
         </div>
       </div>
 
@@ -1126,6 +1132,31 @@
       if (e.target.value.trim().length > 0) container.classList.add('expanded');
       else container.classList.remove('expanded');
     });
+
+    // Link de invitación (?invite=CODE): precarga y bloquea el código para que un empleado
+    // no pueda registrarse "a medias" sin saberlo. Antes el código era solo texto que el
+    // empleado debía copiar y volver a escribir a mano; si lo olvidaba u omitía, terminaba
+    // registrado como admin de un negocio nuevo y vacío en vez de unirse al de su empleador.
+    (function prefillInviteFromLink() {
+      const linkCode = new URLSearchParams(window.location.search).get('invite');
+      if (!linkCode) return;
+      const codeInput = document.getElementById('auth-invite-code');
+      codeInput.value = linkCode;
+      codeInput.readOnly = true;
+      codeInput.style.opacity = '0.7';
+      document.getElementById('invite-fullname-container').classList.add('expanded');
+      document.getElementById('auth-invite-banner').classList.remove('hidden');
+      window.history.replaceState({}, document.title, window.location.pathname);
+    })();
+
+    document.getElementById('btn-clear-invite').onclick = () => {
+      const codeInput = document.getElementById('auth-invite-code');
+      codeInput.value = '';
+      codeInput.readOnly = false;
+      codeInput.style.opacity = '';
+      document.getElementById('invite-fullname-container').classList.remove('expanded');
+      document.getElementById('auth-invite-banner').classList.add('hidden');
+    };
 
     // Botón Entrar con Google (handler que faltaba)
     document.getElementById('btn-google-auth').onclick = async () => {
@@ -1895,10 +1926,17 @@ if (paymentMethod === 'Crédito') {
 
         if (error) alert("Error generando código: " + error.message);
         else {
+          const link = `${window.location.origin}${window.location.pathname}?invite=${code}`;
+          document.getElementById('lbl-generated-link').textContent = link;
           document.getElementById('lbl-generated-code').textContent = code;
           document.getElementById('invite-code-display').classList.remove('hidden');
-          await logActivity(`Generó un código de invitación para empleado`);
+          await logActivity(`Generó un link de invitación para empleado`);
         }
+      };
+
+      document.getElementById('btn-copy-link').onclick = () => {
+        navigator.clipboard.writeText(document.getElementById('lbl-generated-link').textContent);
+        alert("Link copiado al portapapeles. Envíaselo a tu empleado por WhatsApp, correo, etc.");
       };
 
       document.getElementById('btn-copy-code').onclick = () => {
