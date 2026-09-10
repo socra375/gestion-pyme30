@@ -3,6 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <!-- El link de invitación de empleado trae el código en la URL (?invite=...); sin esto,
+       el navegador reenvía la URL completa como Referer a Google Fonts y a los CDN de abajo. -->
+  <meta name="referrer" content="strict-origin">
   <title>Sistema de Gestión PYME Multi-usuario</title>
 
   <!-- Google Fonts: Space Grotesk & Inter -->
@@ -712,7 +715,7 @@
       <h2>Gestión de Empleados</h2>
       <div class="card" style="margin-top: 0.5rem;">
         <h3>Invitar Empleado</h3>
-        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">Genera un código de acceso único para registrar nuevos empleados.</p>
+        <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.75rem;">Genera un código de acceso único para registrar nuevos empleados. Válido por 7 días y de un solo uso.</p>
         <button id="btn-generate-invite" class="btn-primary">Generar Código de Invitación</button>
         
         <div id="invite-code-display" class="hidden" style="margin-top: 1rem; padding: 1rem; background: var(--bg-input); border: 1px dashed var(--accent-profit); text-align: center; border-radius: 8px;">
@@ -984,6 +987,19 @@
   </nav>
 
   <script type="module">
+    // -------------------------------------------------------------
+    // UTILIDADES DE SEGURIDAD
+    // -------------------------------------------------------------
+    // Escapa texto antes de insertarlo en HTML vía innerHTML/template strings. Nombres de
+    // clientes, productos, empleados, etc. vienen de formularios del propio usuario (o de
+    // otro miembro del negocio) y se guardan tal cual en Supabase — sin esto, un nombre como
+    // <img src=x onerror=alert(1)> se ejecutaría al mostrarse en cualquier tabla o factura.
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, (ch) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+      }[ch]));
+    }
+
     // -------------------------------------------------------------
     // 0. PERSONALIZACIÓN (tema y fondo): preferencia por dispositivo, guardada en
     // localStorage. Se aplica de inmediato, antes de iniciar Supabase, para que no
@@ -1617,8 +1633,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${c.name}</td>
-          <td>${c.phone || 'N/A'}</td>
+          <td>${escapeHtml(c.name)}</td>
+          <td>${escapeHtml(c.phone) || 'N/A'}</td>
           <td class="font-numeric" style="color: ${pendingTotal > 0 ? 'var(--accent-expense)' : 'var(--accent-profit)'}">$${pendingTotal.toFixed(2)}</td>
           <td><button class="btn-account" data-id="${c.id}" style="padding: 0.2rem 0.5rem; margin:0; font-size:0.8rem;">Ver Cuenta</button></td>
         `;
@@ -1685,53 +1701,30 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
       document.getElementById('modal-customer-account').classList.remove('hidden');
 
-      // Procesar Abono: se registra como venta y genera su propia factura;
-      // si se paga después de la fecha límite, se aplica 10% de interés por mora.
+      // Procesar Abono: valida el monto, recalcula el recargo por mora (si aplica) y
+      // actualiza el crédito dentro de una sola transacción en el servidor con bloqueo de
+      // fila (process_credit_payment), evitando que dos abonos simultáneos al mismo crédito
+      // se pisen entre sí o que el cliente pueda forzar montos inválidos. Luego se genera la
+      // venta/factura correspondiente al abono, igual que antes.
       document.getElementById('payment-form').onsubmit = async (e) => {
         e.preventDefault();
         const creditId = creditSelect.value;
         const amountToPay = parseFloat(document.getElementById('payment-amount').value);
 
-        const targetCredit = creditsSnapshot.find(cr => cr.id === creditId);
-        if (!targetCredit || amountToPay <= 0) return alert("Monto o crédito inválido.");
+        if (!creditId || !(amountToPay > 0)) return alert("Monto o crédito inválido.");
 
-        const currentPaid = parseFloat(targetCredit.amount_paid);
-        let totalAmount = parseFloat(targetCredit.amount);
+        const { data: saleData, error: payErr } = await supabase.rpc('process_credit_payment', {
+          p_business_id: currentBusinessId,
+          p_credit_id: creditId,
+          p_amount: amountToPay
+        });
+        if (payErr) return alert("Error al registrar abono: " + payErr.message);
 
-        const isLate = !!(targetCredit.due_date && !targetCredit.late_fee_applied && isPastDueDate(targetCredit.due_date));
-        let interestAmount = 0;
-        if (isLate) {
-          interestAmount = (totalAmount - currentPaid) * 0.10;
-          totalAmount += interestAmount;
-        }
+        const interestAmount = parseFloat(saleData.profit) - parseFloat(saleData.total);
+        const isLate = interestAmount > 0;
 
-        const newPaid = currentPaid + amountToPay;
-        let newStatus = 'parcial';
-        if (newPaid >= totalAmount) newStatus = 'pagado';
-
-        const creditUpdates = { amount: totalAmount, amount_paid: newPaid, status: newStatus };
-        if (isLate) creditUpdates.late_fee_applied = true;
-
-        const { error } = await supabase.from('customer_credits').update(creditUpdates).eq('id', creditId);
-        if (error) return alert("Error al registrar abono: " + error.message);
-
-        // El abono se suma a Ventas y genera automáticamente su factura
-        const { data: saleData, error: saleErr } = await supabase.from('sales').insert([{
-          business_id: currentBusinessId,
-          items: [{
-            name: `Abono a crédito - ${customer.name}${isLate ? ' (incl. recargo por mora 10%)' : ''}`,
-            qty: 1, price: amountToPay, subtotal: amountToPay
-          }],
-          total: amountToPay,
-          profit: amountToPay + interestAmount,
-          payment_method: 'Abono Crédito'
-        }]).select().single();
-
-        let invData = null, invErr = null;
-        if (!saleErr) {
-          salesHistory.unshift(saleData);
-          ({ data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId));
-        }
+        salesHistory.unshift(saleData);
+        const { data: invData, error: invErr } = await createInvoiceForSale(saleData, customerId);
 
         document.getElementById('payment-amount').value = '';
         await loadCredits();
@@ -1740,8 +1733,8 @@ document.getElementById('login-form').addEventListener('submit', async (e) => {
 
         if (isLate) alert(`Pago recibido después de la fecha límite: se aplicó un recargo por mora del 10% ($${interestAmount.toFixed(2)}).`);
 
-        if (saleErr || invErr) {
-          alert("Abono registrado, pero hubo un error generando su venta/factura: " + (saleErr?.message || invErr?.message));
+        if (invErr) {
+          alert("Abono registrado, pero hubo un error generando su factura: " + invErr.message);
         } else if (invData) {
           openInvoiceModal(invData);
         } else {
@@ -1881,9 +1874,20 @@ if (paymentMethod === 'Crédito') {
     // -------------------------------------------------------------
     // 7. FUNCIONALIDAD 2: GESTIÓN DE EMPLEADOS (ADMIN)
     // -------------------------------------------------------------
+    // Genera un código de invitación con aleatoriedad criptográfica (no Math.random, que no
+    // es apta para tokens de seguridad) y suficiente longitud para que adivinarlo por fuerza
+    // bruta sea inviable incluso antes de que expire (ver expires_at en employee_invites).
+    function generateSecureInviteCode() {
+      const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // sin 0/O ni 1/I/L, para evitar confusiones al escribirlo
+      const bytes = crypto.getRandomValues(new Uint8Array(10));
+      let code = 'EMP';
+      bytes.forEach(b => code += alphabet[b % alphabet.length]);
+      return code;
+    }
+
     function initEmployeeManagement() {
       document.getElementById('btn-generate-invite').onclick = async () => {
-        const code = 'EMP' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const code = generateSecureInviteCode();
         const { error } = await supabase.from('employee_invites').insert([{
           business_id: currentBusinessId,
           code: code
@@ -1919,13 +1923,13 @@ if (paymentMethod === 'Crédito') {
           const perms = m.permissions || {};
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${m.employee_name || ''}" placeholder="Nombre" style="margin:0; padding:0.3rem;"></td>
-            <td><input type="text" class="input-role-title" data-id="${m.id}" value="${m.role_title || ''}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
+            <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${escapeHtml(m.employee_name)}" placeholder="Nombre" style="margin:0; padding:0.3rem;"></td>
+            <td><input type="text" class="input-role-title" data-id="${m.id}" value="${escapeHtml(m.role_title)}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
             <td><span class="badge-status status-pagado">Empleado</span></td>
             <td style="text-align:center;"><input type="checkbox" class="chk-perm-dashboard" data-id="${m.id}" ${perms.ver_dashboard ? 'checked' : ''}></td>
             <td style="text-align:center;"><input type="checkbox" class="chk-perm-reportes" data-id="${m.id}" ${perms.ver_reportes ? 'checked' : ''}></td>
             <td>${new Date(m.created_at).toLocaleDateString()}</td>
-            <td><button type="button" class="btn-remove-employee btn-danger" data-id="${m.id}" data-name="${m.employee_name || 'este empleado'}" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.8rem;">Eliminar</button></td>
+            <td><button type="button" class="btn-remove-employee btn-danger" data-id="${m.id}" data-name="${escapeHtml(m.employee_name || 'este empleado')}" style="width:auto; margin:0; padding:0.3rem 0.6rem; font-size:0.8rem;">Eliminar</button></td>
           `;
           tbody.appendChild(tr);
         });
@@ -2084,7 +2088,7 @@ if (paymentMethod === 'Crédito') {
       list.innerHTML = overdue.map(cr => {
         const customer = customersSnapshot.find(c => c.id === cr.customer_id);
         const pending = parseFloat(cr.amount) - parseFloat(cr.amount_paid);
-        return `<li style="color: var(--accent-expense);">${customer?.name || 'Cliente'} — $${pending.toFixed(2)} pendiente (venció ${formatDateOnly(cr.due_date)})</li>`;
+        return `<li style="color: var(--accent-expense);">${escapeHtml(customer?.name || 'Cliente')} — $${pending.toFixed(2)} pendiente (venció ${formatDateOnly(cr.due_date)})</li>`;
       }).join('');
     }
 
@@ -2112,7 +2116,7 @@ if (paymentMethod === 'Crédito') {
         return;
       }
       const curr = currentBusinessData?.currency_symbol || '$';
-      list.innerHTML = top.map(([name, t]) => `<li>${name} — ${t.qty} uds. (${curr}${t.revenue.toFixed(2)})</li>`).join('');
+      list.innerHTML = top.map(([name, t]) => `<li>${escapeHtml(name)} — ${t.qty} uds. (${curr}${t.revenue.toFixed(2)})</li>`).join('');
     }
 
     // Desglose de ventas por método de pago dentro del período activo del Dashboard
@@ -2134,7 +2138,7 @@ if (paymentMethod === 'Crédito') {
       const curr = currentBusinessData?.currency_symbol || '$';
       el.innerHTML = entries.map(([method, total]) => `
         <div style="display:flex; justify-content:space-between; padding:0.25rem 0; border-bottom: 1px solid var(--border-subtle);">
-          <span>${method}</span><span class="font-numeric">${curr}${total.toFixed(2)}</span>
+          <span>${escapeHtml(method)}</span><span class="font-numeric">${curr}${total.toFixed(2)}</span>
         </div>
       `).join('');
     }
@@ -2236,7 +2240,7 @@ if (paymentMethod === 'Crédito') {
       if (!oldValues || !newValues) return '';
       const changes = Object.keys(newValues)
         .filter(k => String(oldValues[k] ?? '') !== String(newValues[k] ?? ''))
-        .map(k => `${k}: ${oldValues[k] ?? '—'} → ${newValues[k] ?? '—'}`);
+        .map(k => `${escapeHtml(k)}: ${escapeHtml(oldValues[k] ?? '—')} → ${escapeHtml(newValues[k] ?? '—')}`);
       return changes.length ? ` (${changes.join(', ')})` : '';
     }
 
@@ -2247,7 +2251,7 @@ if (paymentMethod === 'Crédito') {
       if (data) {
         data.forEach(log => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `<td>${log.user_name || 'Sistema'}</td><td>${log.action}${describeChanges(log.old_values, log.new_values)}</td><td>${new Date(log.created_at).toLocaleString()}</td>`;
+          tr.innerHTML = `<td>${escapeHtml(log.user_name || 'Sistema')}</td><td>${escapeHtml(log.action)}${describeChanges(log.old_values, log.new_values)}</td><td>${new Date(log.created_at).toLocaleString()}</td>`;
           tbody.appendChild(tr);
         });
       }
@@ -2431,7 +2435,7 @@ if (paymentMethod === 'Crédito') {
         data.forEach(inv => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td>${inv.invoice_number}</td>
+            <td>${escapeHtml(inv.invoice_number)}</td>
             <td>${new Date(inv.created_at).toLocaleDateString()}</td>
             <td class="font-numeric">$${parseFloat(inv.total).toFixed(2)}</td>
             <td><button class="btn-view-invoice" data-id="${inv.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Ver</button></td>
@@ -2468,7 +2472,7 @@ if (paymentMethod === 'Crédito') {
       const qty = item?.qty ?? 1;
       const price = item?.price ?? 0;
       tr.innerHTML = `
-        <td class="invoice-editable" contenteditable="true">${item?.name || ''}</td>
+        <td class="invoice-editable" contenteditable="true">${escapeHtml(item?.name)}</td>
         <td class="num invoice-editable inv-qty" contenteditable="true">${qty}</td>
         <td class="num invoice-editable inv-price" contenteditable="true">${parseFloat(price).toFixed(2)}</td>
         <td class="num inv-line-total">0.00</td>
@@ -2588,11 +2592,11 @@ if (paymentMethod === 'Crédito') {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td>${new Date(m.created_at).toLocaleString()}</td>
-            <td>${m.product_name}</td>
-            <td>${typeLabel[m.type] || m.type}</td>
+            <td>${escapeHtml(m.product_name)}</td>
+            <td>${escapeHtml(typeLabel[m.type] || m.type)}</td>
             <td class="font-numeric">${m.quantity > 0 ? '+' : ''}${m.quantity}</td>
             <td>${m.stock_before} → ${m.stock_after}</td>
-            <td>${m.reason || '—'}</td>
+            <td>${escapeHtml(m.reason) || '—'}</td>
           `;
           tbody.appendChild(tr);
         });
@@ -2665,8 +2669,8 @@ function renderInventoryTable(products) {
   products.forEach(p => {
     const tr = document.createElement('tr');
     tr.innerHTML = `
-      <td>${p.name}${p.sku ? `<br><span style="font-size:0.75rem; color: var(--text-muted);">SKU: ${p.sku}</span>` : ''}</td>
-      <td>${p.category || 'General'}</td>
+      <td>${escapeHtml(p.name)}${p.sku ? `<br><span style="font-size:0.75rem; color: var(--text-muted);">SKU: ${escapeHtml(p.sku)}</span>` : ''}</td>
+      <td>${escapeHtml(p.category) || 'General'}</td>
       <td class="font-numeric">$${parseFloat(p.sale_price).toFixed(2)}</td>
       <td>${p.stock}</td>
       <td><button class="btn-edit" data-id="${p.id}" style="padding:0.2rem 0.5rem; margin:0; font-size:0.8rem;">Editar</button></td>
@@ -2678,7 +2682,7 @@ function renderInventoryTable(products) {
   const categoryList = document.getElementById('category-list');
   if (categoryList) {
     const categories = [...new Set(products.map(p => p.category).filter(Boolean))];
-    categoryList.innerHTML = categories.map(c => `<option value="${c}"></option>`).join('');
+    categoryList.innerHTML = categories.map(c => `<option value="${escapeHtml(c)}"></option>`).join('');
   }
 
   tbody.querySelectorAll('.btn-edit').forEach(btn => {
@@ -2720,7 +2724,7 @@ function renderInventoryTable(products) {
         total += item.subtotal;
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td>${item.name}</td>
+          <td>${escapeHtml(item.name)}</td>
           <td>${item.qty}</td>
           <td class="font-numeric">$${item.subtotal.toFixed(2)}</td>
           <td><button class="btn-danger btn-remove" data-index="${index}" style="padding:0.1rem 0.4rem; margin:0; font-size:0.75rem;">X</button></td>
