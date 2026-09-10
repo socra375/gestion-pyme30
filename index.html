@@ -2108,7 +2108,12 @@ if (paymentMethod === 'Crédito') {
       let filteredSales = [];
       let prevSales = [];
 
-      salesHistory.forEach(s => {
+      // Un abono a crédito no es una venta nueva: el ingreso (y la ganancia) ya se contaron
+      // por completo cuando se otorgó el crédito. Si también se suma aquí, la misma plata
+      // queda contada dos veces en Ventas Brutas y Ganancia Neta.
+      const revenueHistory = salesHistory.filter(s => s.payment_method !== 'Abono Crédito');
+
+      revenueHistory.forEach(s => {
         const d = new Date(s.created_at);
         if (activePeriod === 'today') {
           if (d.toDateString() === now.toDateString()) filteredSales.push(s);
