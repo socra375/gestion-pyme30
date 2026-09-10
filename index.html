@@ -423,7 +423,7 @@
 
       <form id="onboarding-form">
         <label>Nombre de la Empresa</label>
-        <input type="text" id="onb-business-name" placeholder="Ej: Mi Colmado / Licorería" required>
+        <input type="text" id="onb-business-name" placeholder="Ej: Mi Colmado / Licorería" maxlength="100" required>
 
         <label>Tipo de Negocio</label>
         <div class="radio-group">
@@ -541,11 +541,11 @@
         <h3 id="product-form-title">Guardar Producto</h3>
         <input type="hidden" id="prod-id">
         <label>Nombre del Producto</label>
-        <input type="text" id="prod-name" required>
+        <input type="text" id="prod-name" maxlength="150" required>
         <label>SKU / Código (Opcional)</label>
-        <input type="text" id="prod-sku" placeholder="Ej: BEB-001">
+        <input type="text" id="prod-sku" placeholder="Ej: BEB-001" maxlength="50">
         <label>Categoría (Opcional)</label>
-        <input type="text" id="prod-category" list="category-list" placeholder="Ej: Bebidas">
+        <input type="text" id="prod-category" list="category-list" placeholder="Ej: Bebidas" maxlength="50">
         <datalist id="category-list"></datalist>
         <label>Precio Compra ($)</label>
         <input type="number" step="0.01" id="prod-cost" placeholder="0.00">
@@ -618,9 +618,9 @@
       <form id="customer-form" class="card" style="margin-top: 0.5rem;">
         <h3>Registrar Nuevo Cliente</h3>
         <label>Nombre del Cliente</label>
-        <input type="text" id="cust-name" required>
+        <input type="text" id="cust-name" maxlength="150" required>
         <label>Teléfono</label>
-        <input type="tel" id="cust-phone">
+        <input type="tel" id="cust-phone" maxlength="30">
         <button type="submit" class="btn-primary">Guardar Cliente</button>
       </form>
 
@@ -1923,8 +1923,8 @@ if (paymentMethod === 'Crédito') {
           const perms = m.permissions || {};
           const tr = document.createElement('tr');
           tr.innerHTML = `
-            <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${escapeHtml(m.employee_name)}" placeholder="Nombre" style="margin:0; padding:0.3rem;"></td>
-            <td><input type="text" class="input-role-title" data-id="${m.id}" value="${escapeHtml(m.role_title)}" placeholder="Ej: Cajero" style="margin:0; padding:0.3rem;"></td>
+            <td><input type="text" class="input-employee-name" data-id="${m.id}" value="${escapeHtml(m.employee_name)}" placeholder="Nombre" maxlength="150" style="margin:0; padding:0.3rem;"></td>
+            <td><input type="text" class="input-role-title" data-id="${m.id}" value="${escapeHtml(m.role_title)}" placeholder="Ej: Cajero" maxlength="50" style="margin:0; padding:0.3rem;"></td>
             <td><span class="badge-status status-pagado">Empleado</span></td>
             <td style="text-align:center;"><input type="checkbox" class="chk-perm-dashboard" data-id="${m.id}" ${perms.ver_dashboard ? 'checked' : ''}></td>
             <td style="text-align:center;"><input type="checkbox" class="chk-perm-reportes" data-id="${m.id}" ${perms.ver_reportes ? 'checked' : ''}></td>
