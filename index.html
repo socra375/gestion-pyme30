@@ -1160,9 +1160,27 @@
 
     // Botón Entrar con Google (handler que faltaba)
     document.getElementById('btn-google-auth').onclick = async () => {
+      // Si hay un código de invitación cargado (a mano o vía link), debe viajar también en el
+      // login con Google — si no, Google redirige a una URL "limpia" y el empleado termina
+      // registrado como admin de un negocio nuevo en vez de unirse al de su empleador.
+      const inviteCode = document.getElementById('auth-invite-code').value.trim();
+      const employeeName = document.getElementById('auth-employee-name').value.trim();
+
+      if (inviteCode && !employeeName) {
+        alert("Debes escribir tu nombre completo para registrarte con un código de invitación.");
+        return;
+      }
+
+      const baseUrl = window.location.origin + window.location.pathname;
+      let redirectTo = baseUrl;
+      if (inviteCode) {
+        const params = new URLSearchParams({ invite: inviteCode, empname: employeeName });
+        redirectTo = `${baseUrl}?${params.toString()}`;
+      }
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo: window.location.origin + window.location.pathname }
+        options: { redirectTo }
       });
       if (error) alert("Error OAuth: " + error.message);
     };
